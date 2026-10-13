@@ -90,7 +90,8 @@ def find_spot(area, plants: list, name: str):
             if fallback is None:
                 fallback = (x, y)
             neighbors = [p for p in plants
-                         if max(abs(p.pos_x - x), abs(p.pos_y - y)) <= 1]
+                         if p.area_id == area.id
+                         and max(abs(p.pos_x - x), abs(p.pos_y - y)) <= 1]
             if all((pairing(name, p.name) or ("good",))[0] != "bad" for p in neighbors):
                 return (x, y)
     return fallback

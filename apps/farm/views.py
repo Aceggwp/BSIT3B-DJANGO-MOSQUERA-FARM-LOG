@@ -1,3 +1,4 @@
+import json
 from datetime import date, timedelta
 
 from django.contrib import messages
@@ -141,7 +142,7 @@ def quick_pest(request):
     plant = _plant(request.user, request.POST.get("plant"))
     note = request.POST.get("note", "").strip() or "Pest spotted (quick log)."
     log = CareLog.objects.create(
-        user=request.user, plant=plant, date=date.today(),
+        user=plant.user, plant=plant, date=date.today(),
         category="pest", description=note,
     )
     messages.warning(request, f"Pest logged on {plant.name}. Check it soon.")
@@ -190,7 +191,6 @@ def stats_ajax(request):
 
 @login_required(login_url="login")
 def plant_list_page(request):
-    import json
     query = request.GET.get("q", "").strip()
     qs = _plants(request.user).order_by("name")
     if query:
@@ -205,9 +205,16 @@ def plant_list_page(request):
             "cells": [[p.pos_x, p.pos_y, p.name] for p in area.plants.all()
                       if 0 <= p.pos_x < area.cols and 0 <= p.pos_y < area.rows],
         }
+    # Escape for inline <script> context: json.dumps alone does not
+    # escape "<", so a plant name like "</script>" would break out
+    # of the script block (stored XSS).
+    area_map_json = (json.dumps(area_map)
+                     .replace("<", "\\u003c")
+                     .replace(">", "\\u003e")
+                     .replace("&", "\\u0026"))
     return render(request, "farm/plants.html", {
         "plants": plants, "query": query, "areas": areas,
-        "area_map_json": json.dumps(area_map),
+        "area_map_json": area_map_json,
     })
 
 
@@ -405,7 +412,7 @@ def plant_save_ajax(request):
     if is_update and old_expected is not None:
         synced = _sync_reminders_after_edit(plant, old_name, old_expected, old_water, old_fert)
     if plant.status == "dead" and not was_dead:
-        msg = _notify_plant_died(request.user, plant)
+        msg = _notify_plant_died(plant.user, plant)
         messages.warning(request, f'"{plant.name}" marked dead. Reminder added: {msg}.')
     else:
         messages.success(request, f'Plant "{plant.name}" {"updated" if is_update else "saved"}.')
@@ -489,11 +496,16 @@ def map_auto_arrange(request):
     area_id = request.POST.get("area")
     if area_id:
         areas = [_area(request.user, area_id)]
-        unplaced = _plants(request.user).filter(area__isnull=True)
     else:
         areas = list(_areas(request.user))
-        unplaced = _plants(request.user).filter(area__isnull=True)
-    unplaced = list(unplaced.order_by("name"))
+    # Unplaced plants, plus off-grid plants (position outside their
+    # plot's grid) from the plots in this run.
+    unplaced = list(_plants(request.user).filter(area__isnull=True))
+    for area in areas:
+        for plant in area.plants.all():
+            if not (0 <= plant.pos_x < area.cols and 0 <= plant.pos_y < area.rows):
+                unplaced.append(plant)
+    unplaced.sort(key=lambda p: p.name)
     placed, skipped = 0, 0
     for area in areas:
         occupants = [p for p in area.plants.all()]
@@ -723,7 +735,7 @@ def ai_advice_ajax(request, pk):
     if not result["ok"]:
         return JsonResponse({"error": result["error"]}, status=502)
     log = CareLog.objects.create(
-        user=request.user, plant=plant, date=date.today(),
+        user=plant.user, plant=plant, date=date.today(),
         category="note", description=f"AI advice [{backend_name}]: {result['text']}",
     )
     return JsonResponse({"status": "success", "id": log.id, "advice": result["text"]})
@@ -771,7 +783,7 @@ def carelog_save_ajax(request, pk):
         if photo.content_type not in ("image/jpeg", "image/png", "image/webp", "image/gif"):
             return JsonResponse({"error": "Photo must be JPG, PNG, WEBP, or GIF."}, status=400)
     log = CareLog.objects.create(
-        user=request.user, plant=plant, date=log_date,
+        user=plant.user, plant=plant, date=log_date,
         category=request.POST.get("category", "note"), description=description,
         photo=photo,
     )
@@ -804,7 +816,7 @@ def dailycheck_save_ajax(request, pk):
     except ValueError:
         return JsonResponse({"error": "Height must be a number."}, status=400)
     check, _ = DailyCheck.objects.get_or_create(
-        plant=plant, date=check_date, defaults={"user": request.user},
+        plant=plant, date=check_date, defaults={"user": plant.user},
     )
     check.watered = request.POST.get("watered") in ("true", "on", "1")
     check.fertilized = request.POST.get("fertilized") in ("true", "on", "1")
@@ -821,7 +833,7 @@ def dailycheck_save_ajax(request, pk):
             kinds.append("fertilize")
         _clear_due_reminders(request.user, [plant], kinds, check_date)
     if check.health == "poor" and plant.status != "dead":
-        msg = _notify_plant_struggling(request.user, plant)
+        msg = _notify_plant_struggling(plant.user, plant)
         messages.warning(request, f'Poor health logged on {plant.name}. Reminder added: {msg}.')
     return JsonResponse({"status": "success", "id": check.id})
 
