@@ -1,0 +1,6 @@
+{# Mini need-badges for plant `p`: what this specific plant needs right now. #}
+{% if p.need_water %}<span class="badge bg-primary-lt text-primary" data-need="water" title="Needs water">💧</span>{% endif %}
+{% if p.need_fertilize %}<span class="badge bg-success-lt text-success" data-need="fertilize" title="Needs fertilizer">🌱</span>{% endif %}
+{% if p.need_harvest %}<span class="badge bg-warning-lt text-warning" data-need="harvest" title="Ready to harvest">🌾</span>{% endif %}
+{% if p.need_custom %}<span class="badge bg-secondary-lt text-secondary" data-need="custom" title="Has an open custom reminder">✏️</span>{% endif %}
+{% if p.needs_overdue %}<span class="badge bg-danger-lt text-danger" title="Has overdue reminders">{{ p.overdue_count }} overdue</span>{% endif %}

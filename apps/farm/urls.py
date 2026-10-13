@@ -26,6 +26,7 @@ urlpatterns = [
     path("ajax/reminders/toggle/<int:pk>/", views.reminder_toggle_ajax, name="reminder_toggle_ajax"),
     path("ajax/reminders/delete/<int:pk>/", views.reminder_delete_ajax, name="reminder_delete_ajax"),
     path("weather/adjust/", views.weather_adjust, name="weather_adjust"),
+    path("weather/refresh/", views.weather_refresh, name="weather_refresh"),
     path("quick/water/", views.quick_water_all, name="quick_water_all"),
     path("quick/fertilize/", views.quick_fertilize_all, name="quick_fertilize_all"),
     path("quick/pest/", views.quick_pest, name="quick_pest"),

@@ -67,10 +67,35 @@ def _bulk_check(plants, today, **flags):
     return touched
 
 
+def _rollover_reminder(user, plant, kind, from_date):
+    """Automation: schedule the next water/fertilize occurrence after one is done.
+
+    Creates it only when no open reminder of that kind remains (steady state:
+    at most one open per kind per plant). Harvest/custom never roll over.
+    """
+    if kind not in ("water", "fertilize"):
+        return None
+    if plant.reminders.filter(kind=kind, is_done=False).exists():
+        return None
+    interval = plant.water_every_days if kind == "water" else plant.fertilize_every_days
+    if kind == "water":
+        message = f"Water the {plant.name.lower()} today"
+    else:
+        message = f"Fertilize the {plant.name.lower()} this weekend"
+    return Reminder.objects.create(
+        user=user, plant=plant, kind=kind, message=message,
+        due_date=from_date + timedelta(days=max(1, interval)),
+    )
+
+
 def _clear_due_reminders(user, plants, kinds, as_of):
+    plants = list(plants)
     _reminders(user).filter(
         plant__in=plants, kind__in=kinds, is_done=False, due_date__lte=as_of,
     ).update(is_done=True, done_at=as_of)
+    for plant in plants:
+        for kind in kinds:
+            _rollover_reminder(plant.user, plant, kind, as_of)
 
 
 @login_required(login_url="login")
@@ -186,6 +211,98 @@ def plant_list_page(request):
     })
 
 
+def _notify_plant_died(user, plant):
+    """Remind the user when a plant dies: one open custom reminder + warning."""
+    message = f"Remove or replace the dead {plant.name.lower()}"
+    if not Reminder.objects.filter(
+        user=user, plant=plant, kind="custom", is_done=False, message=message,
+    ).exists():
+        Reminder.objects.create(
+            user=user, plant=plant, kind="custom",
+            message=message, due_date=date.today(),
+        )
+    return message
+
+
+def _notify_plant_struggling(user, plant):
+    """Remind the user when a daily check reports poor health (may be dying)."""
+    message = f"Check the struggling {plant.name.lower()} — poor health reported"
+    if not Reminder.objects.filter(
+        user=user, plant=plant, kind="custom", is_done=False, message=message,
+    ).exists():
+        Reminder.objects.create(
+            user=user, plant=plant, kind="custom",
+            message=message, due_date=date.today(),
+        )
+    return message
+
+
+def _shift_interval_reminders(plant, kind, old_auto, new_auto):
+    """Move open auto-schedule reminders of one kind after an interval edit.
+
+    Only reminders still sitting on the old auto date move (anchor:
+    creation day + interval) — a manually moved reminder is left alone.
+    Returns the number moved.
+    """
+    if old_auto == new_auto:
+        return 0
+    moved = 0
+    for r in plant.reminders.filter(is_done=False, kind=kind, due_date=old_auto):
+        r.due_date = new_auto
+        r.save(update_fields=["due_date"])
+        moved += 1
+    return moved
+
+
+def _sync_reminders_after_edit(plant, old_name, old_expected, old_water=None, old_fert=None):
+    """Sync open auto reminders after a plant edit so /farm/reminders/ stays fresh.
+
+    - Renames propagate into water/fertilize/harvest messages.
+    - Harvest due date + message date follow a changed planting/harvest date,
+      but only when the reminder still sits on the old auto date (a manually
+      moved reminder is left alone).
+    - Water/fertilize due dates follow an interval change the same way
+      (anchor: creation day + interval).
+    - Custom reminders and done reminders are never touched.
+    """
+    new_expected = plant.expected_harvest_date
+    renamed = (old_name or "").lower() != plant.name.lower()
+    rescheduled = old_expected != new_expected
+    touched = 0
+    if renamed or rescheduled:
+        for r in plant.reminders.filter(is_done=False, kind__in=["water", "fertilize", "harvest"]):
+            updated = False
+            if renamed and old_name:
+                new_msg = r.message.replace(old_name.lower(), plant.name.lower())
+                if new_msg != r.message:
+                    r.message = new_msg
+                    updated = True
+            if r.kind == "harvest" and rescheduled:
+                new_msg = r.message.replace(str(old_expected), str(new_expected))
+                if new_msg != r.message:
+                    r.message = new_msg
+                    updated = True
+                if r.due_date == old_expected:
+                    r.due_date = new_expected
+                    updated = True
+            if updated:
+                r.save(update_fields=["message", "due_date"])
+                touched += 1
+    anchor = plant.created_at.date() if plant.created_at else None
+    if anchor is not None:
+        if old_water is not None and old_water != plant.water_every_days:
+            touched += _shift_interval_reminders(
+                plant, "water",
+                anchor + timedelta(days=old_water),
+                anchor + timedelta(days=plant.water_every_days))
+        if old_fert is not None and old_fert != plant.fertilize_every_days:
+            touched += _shift_interval_reminders(
+                plant, "fertilize",
+                anchor + timedelta(days=old_fert),
+                anchor + timedelta(days=plant.fertilize_every_days))
+    return touched
+
+
 @login_required(login_url="login")
 def plant_detail_page(request, pk):
     plant = _plant(request.user, pk)
@@ -260,9 +377,19 @@ def plant_save_ajax(request):
     pk = request.POST.get("id")
     if pk:
         plant = _plant(request.user, pk)
+        was_dead = plant.status == "dead"
+        old_name = plant.name
+        old_expected = plant.expected_harvest_date
+        old_water = plant.water_every_days
+        old_fert = plant.fertilize_every_days
         is_update = True
     else:
         plant = Plant(user=request.user)
+        was_dead = False
+        old_name = ""
+        old_expected = None
+        old_water = None
+        old_fert = None
         is_update = False
     plant, error = _parse_plant_form(request, plant)
     if error:
@@ -274,8 +401,15 @@ def plant_save_ajax(request):
     # Auto-generate tailored reminders on creation.
     if not is_update and not plant.reminders.exists():
         Reminder.objects.bulk_create(Reminder.build_defaults_for_plant(plant))
-    messages.success(request, f'Plant "{plant.name}" {"updated" if is_update else "saved"}.')
-    return JsonResponse({"status": "success", "id": plant.id, "name": plant.name})
+    synced = 0
+    if is_update and old_expected is not None:
+        synced = _sync_reminders_after_edit(plant, old_name, old_expected, old_water, old_fert)
+    if plant.status == "dead" and not was_dead:
+        msg = _notify_plant_died(request.user, plant)
+        messages.warning(request, f'"{plant.name}" marked dead. Reminder added: {msg}.')
+    else:
+        messages.success(request, f'Plant "{plant.name}" {"updated" if is_update else "saved"}.')
+    return JsonResponse({"status": "success", "id": plant.id, "name": plant.name, "synced": synced})
 
 
 @login_required(login_url="login")
@@ -404,11 +538,30 @@ def plant_move_ajax(request, pk):
     return JsonResponse({"status": "moved", "area": area.id, "pos_x": x, "pos_y": y})
 
 
+def _attach_needs(plants):
+    """Attach open-reminder need flags (need_water, needs_overdue, ...) to plants."""
+    by_plant = {}
+    ids = [p.id for p in plants if p.id]
+    for r in Reminder.objects.filter(plant_id__in=ids, is_done=False).order_by("due_date"):
+        by_plant.setdefault(r.plant_id, []).append(r)
+    for plant in plants:
+        rs = by_plant.get(plant.id, [])
+        kinds = {r.kind for r in rs}
+        plant.need_water = "water" in kinds
+        plant.need_fertilize = "fertilize" in kinds
+        plant.need_harvest = "harvest" in kinds
+        plant.need_custom = "custom" in kinds
+        plant.overdue_count = sum(1 for r in rs if r.is_overdue)
+        plant.needs_overdue = plant.overdue_count > 0
+        plant.needs_count = len(rs)
+
+
 @login_required(login_url="login")
 def map_view(request):
     from .companion import analyze
     areas = list(_areas(request.user).prefetch_related("plants"))
     grids = []
+    all_plants = []
     for area in areas:
         # rows x cols matrix; each cell holds the plants at (pos_x, pos_y).
         grid = [[[] for _ in range(area.cols)] for _ in range(area.rows)]
@@ -425,7 +578,10 @@ def map_view(request):
             (bad_ids if alert["kind"] == "bad" else good_ids).update(alert["ids"])
         grids.append({"area": area, "grid": grid, "overflow": overflow,
                       "alerts": alerts, "bad_ids": bad_ids, "good_ids": good_ids})
-    unplaced = _plants(request.user).filter(area__isnull=True)
+        all_plants.extend(area_plants)
+    unplaced = list(_plants(request.user).filter(area__isnull=True))
+    all_plants.extend(unplaced)
+    _attach_needs(all_plants)
     return render(request, "farm/map.html", {"grids": grids, "unplaced": unplaced})
 
 
@@ -489,6 +645,8 @@ def reminder_toggle_ajax(request, pk):
     reminder.is_done = not reminder.is_done
     reminder.done_at = date.today() if reminder.is_done else None
     reminder.save()
+    if reminder.is_done and reminder.kind in ("water", "fertilize"):
+        _rollover_reminder(reminder.user, reminder.plant, reminder.kind, date.today())
     return JsonResponse({"status": "success", "is_done": reminder.is_done})
 
 
@@ -505,14 +663,29 @@ def reminder_delete_ajax(request, pk):
 def weather_adjust(request):
     """Check the rain forecast and postpone due watering reminders if needed."""
     result = farm_weather.adjust_water_reminders(request.user)
-    if result["skipped"]:
+    if result["skipped"] and result["adjusted"]:
         messages.warning(
             request,
             f'Heavy rain forecast ({result["rain_mm"]} mm in 24h). '
             f'{result["adjusted"]} watering reminder(s) paused until tomorrow.',
         )
+    elif result["skipped"]:
+        messages.info(
+            request,
+            f'Heavy rain forecast ({result["rain_mm"]} mm in 24h), '
+            f'but no watering reminders are due — nothing to pause.',
+        )
     else:
         messages.info(request, f'No heavy rain forecast ({result["rain_mm"]} mm). Water as normal.')
+    return redirect("farm:dashboard")
+
+
+@login_required(login_url="login")
+@require_POST
+def weather_refresh(request):
+    """Clear the cached forecast so the dashboard loads fresh weather."""
+    farm_weather.clear_cache()
+    messages.info(request, "Weather forecast refreshed.")
     return redirect("farm:dashboard")
 
 
@@ -646,9 +819,10 @@ def dailycheck_save_ajax(request, pk):
             kinds.append("water")
         if check.fertilized:
             kinds.append("fertilize")
-        _reminders(request.user).filter(
-            plant=plant, kind__in=kinds, is_done=False, due_date__lte=check_date,
-        ).update(is_done=True, done_at=check_date)
+        _clear_due_reminders(request.user, [plant], kinds, check_date)
+    if check.health == "poor" and plant.status != "dead":
+        msg = _notify_plant_struggling(request.user, plant)
+        messages.warning(request, f'Poor health logged on {plant.name}. Reminder added: {msg}.')
     return JsonResponse({"status": "success", "id": check.id})
 
 

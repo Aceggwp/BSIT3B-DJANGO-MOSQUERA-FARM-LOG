@@ -21,7 +21,7 @@
 <div class="plot-grid" style="grid-template-columns: repeat({{ g.area.cols }}, 1fr);">
 {% for row in g.grid %}{% for cell in row %}
 {% if cell %}
-<div class="plot-cell full move-drop" data-area="{{ g.area.id }}" data-x="{{ forloop.counter0 }}" data-y="{{ forloop.parentloop.counter0 }}">{% for p in cell %}<a href="{% url 'farm:plant_detail' p.id %}" draggable="true" class="move-pick" data-plant="{{ p.id }}" data-name="{{ p.name }}" title="{{ p.name }} — harvest {{ p.expected_harvest_date }} (tap to move, tap again to open)">{% if p.id in g.bad_ids %}⚠️ {% elif p.id in g.good_ids %}✨ {% else %}🌱 {% endif %}<strong>{{ p.name }}</strong></a>{% if not forloop.last %}<span class="text-muted">+</span>{% endif %}{% endfor %}</div>
+<div class="plot-cell full move-drop" data-area="{{ g.area.id }}" data-x="{{ forloop.counter0 }}" data-y="{{ forloop.parentloop.counter0 }}">{% for p in cell %}<a href="{% url 'farm:plant_detail' p.id %}" draggable="true" class="move-pick" data-plant="{{ p.id }}" data-name="{{ p.name }}" title="{{ p.name }} — harvest {{ p.expected_harvest_date }} (tap to move, tap again to open)">{% if p.id in g.bad_ids %}⚠️ {% elif p.id in g.good_ids %}✨ {% else %}🌱 {% endif %}<strong>{{ p.name }}</strong></a><span class="d-inline-flex gap-1 mt-1">{% include "farm/_plant_needs.html" with p=p %}</span>{% if not forloop.last %}<span class="text-muted">+</span>{% endif %}{% endfor %}</div>
 {% else %}
 <div class="plot-cell empty move-drop" data-area="{{ g.area.id }}" data-x="{{ forloop.counter0 }}" data-y="{{ forloop.parentloop.counter0 }}">· empty ·</div>
 {% endif %}
@@ -33,10 +33,10 @@
 {% else %}<div class="alert alert-success py-2 mb-1">✨ <strong>{{ alert.a }} × {{ alert.b }}</strong> — {{ alert.reason }}</div>{% endif %}
 {% endfor %}
 </div>{% endif %}
-{% if g.overflow %}<div class="alert alert-warning mt-2 mb-0">Off-grid (X/Y outside {{ g.area.cols }}×{{ g.area.rows }}): {% for p in g.overflow %}<a href="{% url 'farm:plant_detail' p.id %}">{{ p.name }} ({{ p.pos_x }},{{ p.pos_y }})</a>{% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}
+{% if g.overflow %}<div class="alert alert-warning mt-2 mb-0">Off-grid (X/Y outside {{ g.area.cols }}×{{ g.area.rows }}): {% for p in g.overflow %}<a href="{% url 'farm:plant_detail' p.id %}">{{ p.name }} ({{ p.pos_x }},{{ p.pos_y }})</a> {% include "farm/_plant_needs.html" with p=p %}{% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}
 </div></div>
 {% empty %}<div class="card"><div class="card-body text-muted">No garden areas yet. <a href="{% url 'farm:area_list' %}">Create one</a>.</div></div>{% endfor %}
-{% if unplaced %}<div class="card"><div class="card-header"><h3 class="card-title">Unplaced plants</h3></div><div class="list-group list-group-flush">{% for p in unplaced %}<a class="list-group-item" href="{% url 'farm:plant_detail' p.id %}">{{ p.name }} — assign an area</a>{% endfor %}</div></div>{% endif %}
+{% if unplaced %}<div class="card"><div class="card-header"><h3 class="card-title">Unplaced plants</h3></div><div class="list-group list-group-flush">{% for p in unplaced %}<span class="list-group-item"><a href="{% url 'farm:plant_detail' p.id %}">{{ p.name }}</a> — assign an area {% include "farm/_plant_needs.html" with p=p %}</span>{% endfor %}</div></div>{% endif %}
 <script>
 document.querySelectorAll('.arrange-form').forEach(f=>f.addEventListener('submit',e=>{e.preventDefault();fetch(f.action,{method:'POST',headers:{'X-CSRFToken':f.querySelector('[name=csrfmiddlewaretoken]').value,'X-Requested-With':'XMLHttpRequest'},body:new FormData(f)}).then(()=>location.reload());}));
 (function(){

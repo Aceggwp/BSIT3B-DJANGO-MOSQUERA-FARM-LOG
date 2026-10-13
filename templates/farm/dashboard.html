@@ -27,24 +27,63 @@
   </div>
 </div>
 <br>
-{% if weather.state == 'ok' and weather.skip_watering %}
-<div class="alert alert-info d-flex align-items-center gap-2" role="alert">
-  <i class="fas fa-cloud-rain"></i>
-  <div>Heavy rain forecast for {{ weather.city }} ({{ weather.rain_mm }} mm in 24h) — watering alerts are paused.
-    <form method="post" action="{% url 'farm:weather_adjust' %}" class="d-inline ms-2">{% csrf_token %}<button class="btn btn-sm btn-info">Pause watering reminders</button></form>
+<div class="card mb-3 {% if weather.state == 'ok' and weather.skip_watering %}card-active{% endif %}">
+  <div class="card-header">
+    <h3 class="card-title"><i class="fas fa-cloud-sun me-2"></i>Weather now{% if weather.city %} — {{ weather.city }}{% endif %}</h3>
+    <div class="card-actions">
+      <form method="post" action="{% url 'farm:weather_refresh' %}" class="m-0">{% csrf_token %}<button class="btn btn-sm btn-outline-primary" title="Fetch fresh forecast"><i class="fas fa-rotate me-1"></i>Refresh</button></form>
+    </div>
+  </div>
+  <div class="card-body">
+    {% if weather.state == 'ok' %}
+    <div class="row align-items-center">
+      <div class="col-auto text-center">
+        {% if weather.skip_watering %}
+        <div class="display-1 text-primary"><i class="fas fa-cloud-showers-heavy"></i></div>
+        {% else %}
+        <div class="display-1 text-warning"><i class="fas fa-sun"></i></div>
+        {% endif %}
+      </div>
+      <div class="col">
+        <div class="display-3 fw-bold">{{ weather.rain_mm }}<small class="text-muted fs-3"> mm / 24h</small></div>
+        {% if weather.skip_watering %}
+        <div class="h3 text-primary mt-1">Skip watering — heavy rain coming</div>
+        <div class="text-muted">Over the {{ weather.threshold_mm }} mm pause threshold. Watering alerts can be paused.</div>
+        {% else %}
+        <div class="h3 text-success mt-1">Water as normal</div>
+        <div class="text-muted">Under the {{ weather.threshold_mm }} mm pause threshold. No heavy rain in the next 24h.</div>
+        {% endif %}
+      </div>
+      <div class="col-auto">
+        {% if weather.skip_watering %}
+        <form method="post" action="{% url 'farm:weather_adjust' %}" class="m-0">{% csrf_token %}<button class="btn btn-lg btn-info"><i class="fas fa-pause me-2"></i>Pause watering reminders</button></form>
+        {% endif %}
+      </div>
+    </div>
+    {% if weather.hourly %}
+    <div class="mt-3">
+      <div class="subheader mb-1">Rain by hour (farm time, next 24h)</div>
+      <div class="d-flex align-items-end gap-1" style="height:72px">
+        {% for slot in weather.hourly %}
+        <div class="flex-fill text-center" title="{{ slot.label }}: {{ slot.mm }} mm">
+          <div class="mx-auto rounded" style="height:{{ slot.h }}%;min-height:{% if slot.mm > 0 %}4px{% else %}2px{% endif %};background:{% if slot.mm >= 2 %}#206bc4{% elif slot.mm > 0 %}#8fb8e8{% else %}#e6e8eb{% endif %}">&nbsp;</div>
+          {% if forloop.counter0|divisibleby:3 %}<small class="text-muted" style="font-size:9px">{{ slot.label }}</small>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="row align-items-center">
+      <div class="col-auto"><div class="display-1 text-muted"><i class="fas fa-cloud"></i></div></div>
+      <div class="col">
+        <div class="display-5 fw-bold">Forecast unavailable</div>
+        <div class="text-muted">Watering reminders work normally. Check your connection and hit Refresh.</div>
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
-{% elif weather.state == 'ok' %}
-<div class="alert alert-success d-flex align-items-center gap-2" role="alert">
-  <i class="fas fa-sun"></i>
-  <div>No heavy rain forecast for {{ weather.city }} ({{ weather.rain_mm }} mm in 24h) — water as normal.</div>
-</div>
-{% elif weather.state == 'unconfigured' %}
-<div class="alert alert-secondary d-flex align-items-center gap-2" role="alert">
-  <i class="fas fa-cloud"></i>
-  <div>Weather forecast unavailable — watering reminders work normally. Check your connection and reload.</div>
-</div>
-{% endif %}
 <div class="row row-deck row-cards">
   <div class="col-12">
     <div class="card">

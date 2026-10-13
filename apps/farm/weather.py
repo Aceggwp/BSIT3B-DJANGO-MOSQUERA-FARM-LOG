@@ -8,6 +8,7 @@ Both paths fail soft: no network means the farm behaves as before.
 """
 
 import json
+import os
 import urllib.parse
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
@@ -110,28 +111,81 @@ def rain_next_24h(forecast: dict | None) -> float:
     return rain_next_24h_owm(forecast)
 
 
+def hourly_next_24h_open_meteo(forecast: dict | None, now: datetime | None = None) -> list:
+    """Hourly rain slots for the next 24h: [{"label": "2PM", "mm": 1.2}, ...].
+
+    Labels use Asia/Manila farm time (fallback UTC). Empty list on bad input.
+    """
+    if not forecast:
+        return []
+    hourly = forecast.get("hourly") or {}
+    times = hourly.get("time") or []
+    amounts = hourly.get("precipitation") or []
+    if not times or not amounts:
+        return []
+    try:
+        from zoneinfo import ZoneInfo
+        farm_tz = ZoneInfo("Asia/Manila")
+    except Exception:
+        farm_tz = timezone.utc
+    now = now or datetime.now(timezone.utc)
+    end = now + timedelta(hours=24)
+    slots = []
+    for stamp, mm in zip(times, amounts):
+        try:
+            slot = datetime.strptime(stamp, "%Y-%m-%dT%H:%M").replace(tzinfo=timezone.utc)
+        except (TypeError, ValueError):
+            continue
+        if not (now <= slot < end):
+            continue
+        try:
+            amount = round(float(mm), 1)
+        except (TypeError, ValueError):
+            amount = 0.0
+        label = slot.astimezone(farm_tz).strftime("%-I%p") if os.name != "nt" else slot.astimezone(farm_tz).strftime("%#I%p")
+        slots.append({"label": label, "mm": amount})
+    slots = slots[:24]
+    peak = max((s["mm"] for s in slots), default=0.0)
+    for s in slots:
+        # Bar height % for the dashboard chart (min 8% so drizzle stays visible).
+        s["h"] = round(s["mm"] / peak * 100) if peak else 0
+        if s["mm"] > 0 and s["h"] < 8:
+            s["h"] = 8
+    return slots
+
+
+def clear_cache() -> None:
+    """Drop cached forecasts so the next load fetches fresh weather."""
+    cache = caches["default"]
+    cache.delete(OWM_CACHE_KEY)
+    cache.delete(METEO_CACHE_KEY)
+
+
 def weather_status() -> dict:
     """Small summary dict for the dashboard. Never raises."""
     threshold = float(getattr(settings, "FARM_RAIN_SKIP_MM", 5.0))
     city = getattr(settings, "FARM_WEATHER_CITY", "")
     if provider() == "openweathermap":
         if not getattr(settings, "OPENWEATHER_API_KEY", ""):
-            return {"state": "unconfigured", "rain_mm": 0.0, "skip_watering": False}
+            return {"state": "unconfigured", "rain_mm": 0.0, "skip_watering": False, "hourly": []}
         forecast = fetch_openweathermap()
         if forecast is None:
-            return {"state": "unavailable", "rain_mm": 0.0, "skip_watering": False}
+            return {"state": "unavailable", "rain_mm": 0.0, "skip_watering": False, "hourly": []}
         rain_mm = rain_next_24h_owm(forecast)
+        hourly = []
     else:
         forecast = fetch_open_meteo()
         if forecast is None:
-            return {"state": "unavailable", "rain_mm": 0.0, "skip_watering": False}
+            return {"state": "unavailable", "rain_mm": 0.0, "skip_watering": False, "hourly": []}
         rain_mm = rain_next_24h_open_meteo(forecast)
+        hourly = hourly_next_24h_open_meteo(forecast)
     return {
         "state": "ok",
         "rain_mm": round(rain_mm, 1),
         "threshold_mm": threshold,
         "skip_watering": rain_mm >= threshold,
         "city": city,
+        "hourly": hourly,
     }
 
 
