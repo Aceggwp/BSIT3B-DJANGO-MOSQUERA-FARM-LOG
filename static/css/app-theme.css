@@ -732,49 +732,50 @@ html {
   }
 }
 
-/* Motion set: cards, map, badges, toasts, modals, buttons, photos. */
+/* Motion set: cards, map, badges, toasts, modals, buttons, photos.
+   Relaxed: slower, softer ease for a calm glass feel. */
 @media (prefers-reduced-motion: no-preference) {
   .row-cards .card {
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.45s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .row-cards .card:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
   }
 
   .move-src {
-    animation: carry-pulse 1.2s ease-in-out infinite;
+    animation: carry-pulse 2.2s ease-in-out infinite;
   }
 
   @keyframes carry-pulse {
     0%, 100% { box-shadow: 0 0 0 3px var(--tblr-primary); }
-    50% { box-shadow: 0 0 0 6px rgba(var(--tblr-primary-rgb), 0.45); }
+    50% { box-shadow: 0 0 0 8px rgba(var(--tblr-primary-rgb), 0.35); }
   }
 
   .plot-cell.drop-hover {
-    transition: outline-color 0.12s ease, background-color 0.12s ease;
+    transition: outline-color 0.35s ease, background-color 0.35s ease, transform 0.35s ease;
   }
 
   .badge-pulse {
-    animation: badge-pulse 2s ease-in-out infinite;
+    animation: badge-pulse 2.8s ease-in-out infinite;
   }
 
   @keyframes badge-pulse {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.55; }
+    50% { opacity: 0.6; }
   }
 
   .toast-container .toast {
-    animation: toast-in 0.25s ease;
+    animation: toast-in 0.45s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   @keyframes toast-in {
-    from { transform: translateX(24px); opacity: 0; }
+    from { transform: translateX(32px); opacity: 0; }
   }
 
   .modal.fade .modal-dialog {
-    transition: transform 0.18s ease-out, opacity 0.18s ease-out;
-    transform: scale(0.97);
+    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease;
+    transform: scale(0.96) translateY(8px);
   }
 
   .modal.show .modal-dialog {
@@ -783,14 +784,130 @@ html {
 
   .quick-form .btn:active,
   .arrange-form .btn:active {
-    transform: scale(0.96);
+    transform: scale(0.97);
+    transition: transform 0.35s ease;
   }
 
   .img-thumbnail {
-    animation: photo-in 0.4s ease;
+    animation: photo-in 0.6s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   @keyframes photo-in {
-    from { opacity: 0; transform: scale(0.96); }
+    from { opacity: 0; transform: scale(0.97); }
   }
+}
+
+/* Glassmorphism + relaxed transitions (site-wide). */
+:root {
+  --glass-blur: 18px;
+  --glass-saturate: 160%;
+  --glass-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --glass-dur: 0.45s;
+}
+
+body {
+  background-image:
+    radial-gradient(45rem 22rem at 85% -5%, rgba(var(--tblr-primary-rgb), 0.16) 0%, transparent 60%),
+    radial-gradient(40rem 24rem at 8% 108%, rgba(34, 197, 94, 0.16) 0%, transparent 60%),
+    radial-gradient(30rem 20rem at 50% 40%, rgba(139, 92, 246, 0.1) 0%, transparent 65%);
+}
+
+.card,
+.modal-content,
+.dropdown-menu,
+.toast,
+.alert:not(.alert-danger):not(.alert-warning),
+.list-group-item,
+.plot-cell.full,
+.plot-cell.empty {
+  transition:
+    transform var(--glass-dur) var(--glass-ease),
+    box-shadow var(--glass-dur) var(--glass-ease),
+    background-color 0.35s ease,
+    border-color 0.35s ease;
+}
+
+.card {
+  background-color: color-mix(in srgb, var(--tblr-bg-surface) 62%, transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 12px 40px -18px rgba(23, 26, 54, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+[data-bs-theme="dark"] .card {
+  background-color: color-mix(in srgb, var(--tblr-bg-surface) 58%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 16px 44px -18px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.card .card-header,
+.card .card-footer {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.6)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(calc(var(--glass-blur) * 0.6)) saturate(var(--glass-saturate));
+}
+
+.modal-content,
+.dropdown-menu,
+.toast-container .toast {
+  background-color: color-mix(in srgb, var(--tblr-bg-surface) 68%, transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 24px 60px -20px rgba(23, 26, 54, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.list-group-item {
+  background-color: color-mix(in srgb, var(--tblr-bg-surface) 55%, transparent);
+  -webkit-backdrop-filter: blur(12px) saturate(var(--glass-saturate));
+  backdrop-filter: blur(12px) saturate(var(--glass-saturate));
+}
+
+.list-group-item:hover {
+  background-color: color-mix(in srgb, var(--tblr-bg-surface) 72%, transparent);
+}
+
+.btn,
+.nav-link,
+.form-control,
+.form-select,
+.badge,
+.page-link {
+  transition:
+    transform var(--glass-dur) var(--glass-ease),
+    box-shadow var(--glass-dur) var(--glass-ease),
+    background-color 0.35s ease,
+    border-color 0.35s ease,
+    color 0.35s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.plot-cell.full {
+  background: color-mix(in srgb, var(--tblr-primary) 16%, rgba(255, 255, 255, 0.35));
+  -webkit-backdrop-filter: blur(14px) saturate(var(--glass-saturate));
+  backdrop-filter: blur(14px) saturate(var(--glass-saturate));
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 24px -16px rgba(23, 26, 54, 0.4);
+}
+
+.plot-cell.empty {
+  background: rgba(255, 255, 255, 0.28);
+  -webkit-backdrop-filter: blur(12px) saturate(var(--glass-saturate));
+  backdrop-filter: blur(12px) saturate(var(--glass-saturate));
+  border: 1px dashed rgba(122, 129, 163, 0.45);
+}
+
+[data-bs-theme="dark"] .plot-cell.empty {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.glass {
+  background-color: color-mix(in srgb, var(--tblr-bg-surface) 60%, transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid rgba(255, 255, 255, 0.28);
 }

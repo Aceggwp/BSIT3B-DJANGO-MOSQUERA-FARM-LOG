@@ -36,7 +36,7 @@
 {% if g.overflow %}<div class="alert alert-warning mt-2 mb-0">Off-grid (X/Y outside {{ g.area.cols }}×{{ g.area.rows }}): {% for p in g.overflow %}<a href="{% url 'farm:plant_detail' p.id %}">{{ p.name }} ({{ p.pos_x }},{{ p.pos_y }})</a> {% include "farm/_plant_needs.html" with p=p %}{% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}
 </div></div>
 {% empty %}<div class="card"><div class="card-body text-muted">No garden areas yet. <a href="{% url 'farm:area_list' %}">Create one</a>.</div></div>{% endfor %}
-{% if unplaced %}<div class="card"><div class="card-header"><h3 class="card-title">Unplaced plants</h3></div><div class="list-group list-group-flush">{% for p in unplaced %}<span class="list-group-item"><a href="{% url 'farm:plant_detail' p.id %}">{{ p.name }}</a> — assign an area {% include "farm/_plant_needs.html" with p=p %}</span>{% endfor %}</div></div>{% endif %}
+{% if unplaced %}<div class="card"><div class="card-header"><h3 class="card-title">Unplaced plants <small class="text-muted">— tap to pick up, then tap any cell (or drag onto a cell)</small></h3></div><div class="list-group list-group-flush">{% for p in unplaced %}<span class="list-group-item"><a href="{% url 'farm:plant_detail' p.id %}" draggable="true" class="move-pick" data-plant="{{ p.id }}" data-name="{{ p.name }}" title="{{ p.name }} — tap to move, tap again to open">🌱 <strong>{{ p.name }}</strong></a> — drag or tap to place {% include "farm/_plant_needs.html" with p=p %}</span>{% endfor %}</div></div>{% endif %}
 <script>
 document.querySelectorAll('.arrange-form').forEach(f=>f.addEventListener('submit',e=>{e.preventDefault();fetch(f.action,{method:'POST',headers:{'X-CSRFToken':f.querySelector('[name=csrfmiddlewaretoken]').value,'X-Requested-With':'XMLHttpRequest'},body:new FormData(f)}).then(()=>location.reload());}));
 (function(){
@@ -60,8 +60,11 @@ document.querySelectorAll('.arrange-form').forEach(f=>f.addEventListener('submit
     e.preventDefault();
     if(picked){
       const cell=a.closest('.move-drop');
-      doMove(picked,cell.getAttribute('data-area'),cell.getAttribute('data-x'),cell.getAttribute('data-y'));
-      return;
+      if(cell){
+        doMove(picked,cell.getAttribute('data-area'),cell.getAttribute('data-x'),cell.getAttribute('data-y'));
+        return;
+      }
+      // tapped another unplaced plant: switch pickup to it
     }
     clearPick();
     picked=id;

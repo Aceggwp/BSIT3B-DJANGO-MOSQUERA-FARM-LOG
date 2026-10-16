@@ -608,8 +608,11 @@ def reminder_list_page(request):
         qs = qs.filter(is_done=True).order_by("-done_at")
     elif show == "all":
         qs = qs.order_by("is_done", "due_date")
-    else:  # due
-        qs = qs.filter(is_done=False).order_by("due_date")
+    elif show == "upcoming":
+        qs = qs.filter(is_done=False, due_date__gt=today).order_by("due_date")
+    else:  # due: only overdue + due today (matches dashboard badge)
+        show = "due"
+        qs = qs.filter(is_done=False, due_date__lte=today).order_by("due_date")
     paginator = Paginator(qs, 15)
     reminders = paginator.get_page(request.GET.get("page", 1))
     plants = _plants(request.user).order_by("name")
@@ -657,9 +660,15 @@ def reminder_toggle_ajax(request, pk):
     reminder.is_done = not reminder.is_done
     reminder.done_at = date.today() if reminder.is_done else None
     reminder.save()
+    nxt = None
     if reminder.is_done and reminder.kind in ("water", "fertilize"):
-        _rollover_reminder(reminder.user, reminder.plant, reminder.kind, date.today())
-    return JsonResponse({"status": "success", "is_done": reminder.is_done})
+        nxt = _rollover_reminder(reminder.user, reminder.plant, reminder.kind, date.today())
+    return JsonResponse({
+        "status": "success",
+        "is_done": reminder.is_done,
+        "next_due_date": nxt.due_date.isoformat() if nxt else None,
+        "next_kind": nxt.kind if nxt else None,
+    })
 
 
 @login_required(login_url="login")
