@@ -95,64 +95,9 @@
   --tblr-gray-950: #500724;
 }
 
-[data-bs-theme-primary=blue] {
-  --tblr-primary: #066fd1;
-  --tblr-primary-rgb: 6, 111, 209;
-}
-
-[data-bs-theme-primary=azure] {
-  --tblr-primary: #4299e1;
-  --tblr-primary-rgb: 66, 153, 225;
-}
-
-[data-bs-theme-primary=indigo] {
-  --tblr-primary: #4263eb;
-  --tblr-primary-rgb: 66, 99, 235;
-}
-
-[data-bs-theme-primary=purple] {
-  --tblr-primary: #ae3ec9;
-  --tblr-primary-rgb: 174, 62, 201;
-}
-
-[data-bs-theme-primary=pink] {
-  --tblr-primary: #d6336c;
-  --tblr-primary-rgb: 214, 51, 108;
-}
-
-[data-bs-theme-primary=red] {
-  --tblr-primary: #d63939;
-  --tblr-primary-rgb: 214, 57, 57;
-}
-
-[data-bs-theme-primary=orange] {
-  --tblr-primary: #f76707;
-  --tblr-primary-rgb: 247, 103, 7;
-}
-
-[data-bs-theme-primary=yellow] {
-  --tblr-primary: #f59f00;
-  --tblr-primary-rgb: 245, 159, 0;
-}
-
-[data-bs-theme-primary=lime] {
-  --tblr-primary: #74b816;
-  --tblr-primary-rgb: 116, 184, 22;
-}
-
-[data-bs-theme-primary=green] {
-  --tblr-primary: #2fb344;
-  --tblr-primary-rgb: 47, 179, 68;
-}
-
-[data-bs-theme-primary=teal] {
-  --tblr-primary: #0ca678;
-  --tblr-primary-rgb: 12, 166, 120;
-}
-
-[data-bs-theme-primary=cyan] {
-  --tblr-primary: #17a2b8;
-  --tblr-primary-rgb: 23, 162, 184;
+[data-bs-theme-primary] {
+  --tblr-primary: #10b981;
+  --tblr-primary-rgb: 16, 185, 129;
 }
 
 [data-bs-theme-radius="0"] {

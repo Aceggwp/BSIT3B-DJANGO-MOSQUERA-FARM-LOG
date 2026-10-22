@@ -1,4 +1,5 @@
 <div class="settings">
+  {% if show_settings_button is not False %}
   <a
   href="#"
   class="btn btn-floating btn-icon btn-primary"
@@ -26,6 +27,7 @@
   <path d="M10.6 9a9 9 0 0 1 4.4 4.4" />
 </svg>
 </a>
+{% endif %}
 
 <form
 class="offcanvas offcanvas-start offcanvas-narrow"

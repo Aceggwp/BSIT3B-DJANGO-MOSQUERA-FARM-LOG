@@ -1,143 +1,219 @@
 {% extends "theme/base.html" %}
 {% block content %}
 <div class="page-header d-print-none">
-  <div class="row align-items-center">
-    <div class="col">
+  <div class="row align-items-center g-2">
+    <div class="col-12 col-sm">
       <div class="page-pretitle">Mosquera Farm Log</div>
       <h2 class="page-title">Farm Dashboard</h2>
     </div>
-    <div class="col-auto">
-      <a href="{% url 'farm:plant_list' %}" class="btn btn-primary"><i class="fas fa-plus me-2"></i>Add Plant</a>
+    <div class="col-12 col-sm-auto d-flex gap-2">
+      <a href="{% url 'farm:map' %}" class="btn btn-outline-primary flex-fill flex-sm-grow-0"><i class="fas fa-map me-2"></i>Garden map</a>
+      <a href="{% url 'farm:plant_list' %}" class="btn btn-primary flex-fill flex-sm-grow-0"><i class="fas fa-plus me-2"></i>Add Plant</a>
     </div>
   </div>
 </div>
-<br>
-<div class="row row-deck row-cards">
-  <div class="col-sm-6 col-lg-3">
-    <div class="card"><div class="card-body"><div class="subheader">Plants</div><div class="h1" id="stat-plants">{{ plant_count }}</div></div></div>
-  </div>
-  <div class="col-sm-6 col-lg-3">
-    <div class="card"><div class="card-body"><div class="subheader">Due reminders</div><div class="h1 text-danger" id="stat-due">{{ due_count }}</div></div></div>
-  </div>
-  <div class="col-sm-6 col-lg-3">
-    <div class="card"><div class="card-body"><div class="subheader">Ready to harvest</div><div class="h1 text-success" id="stat-ready">{{ ready|length }}</div></div></div>
-  </div>
-  <div class="col-sm-6 col-lg-3">
-    <div class="card"><div class="card-body"><a href="{% url 'farm:map' %}" class="btn btn-outline-primary w-100">Garden Map</a></div></div>
-  </div>
-</div>
-<br>
-<div class="card mb-3 {% if weather.state == 'ok' and weather.skip_watering %}card-active{% endif %}">
-  <div class="card-header">
-    <h3 class="card-title"><i class="fas fa-cloud-sun me-2"></i>Weather now{% if weather.city %} — {{ weather.city }}{% endif %}</h3>
-    <div class="card-actions">
-      <form method="post" action="{% url 'farm:weather_refresh' %}" class="m-0">{% csrf_token %}<button class="btn btn-sm btn-outline-primary" title="Fetch fresh forecast"><i class="fas fa-rotate me-1"></i>Refresh</button></form>
-    </div>
-  </div>
-  <div class="card-body">
-    {% if weather.state == 'ok' %}
-    <div class="row align-items-center">
-      <div class="col-auto text-center">
-        {% if weather.skip_watering %}
-        <div class="display-1 text-primary"><i class="fas fa-cloud-showers-heavy"></i></div>
-        {% else %}
-        <div class="display-1 text-warning"><i class="fas fa-sun"></i></div>
-        {% endif %}
-      </div>
-      <div class="col">
-        <div class="display-3 fw-bold">{{ weather.rain_mm }}<small class="text-muted fs-3"> mm / 24h</small></div>
-        {% if weather.skip_watering %}
-        <div class="h3 text-primary mt-1">Skip watering — heavy rain coming</div>
-        <div class="text-muted">Over the {{ weather.threshold_mm }} mm pause threshold. Watering alerts can be paused.</div>
-        {% else %}
-        <div class="h3 text-success mt-1">Water as normal</div>
-        <div class="text-muted">Under the {{ weather.threshold_mm }} mm pause threshold. No heavy rain in the next 24h.</div>
-        {% endif %}
-      </div>
-      <div class="col-auto">
-        {% if weather.skip_watering %}
-        <form method="post" action="{% url 'farm:weather_adjust' %}" class="m-0">{% csrf_token %}<button class="btn btn-lg btn-info"><i class="fas fa-pause me-2"></i>Pause watering reminders</button></form>
-        {% endif %}
-      </div>
-    </div>
-    {% if weather.hourly %}
-    <div class="mt-3">
-      <div class="subheader mb-1">Rain by hour (farm time, next 24h)</div>
-      <div class="d-flex align-items-end gap-1" style="height:72px">
-        {% for slot in weather.hourly %}
-        <div class="flex-fill text-center" title="{{ slot.label }}: {{ slot.mm }} mm">
-          <div class="mx-auto rounded" style="height:{{ slot.h }}%;min-height:{% if slot.mm > 0 %}4px{% else %}2px{% endif %};background:{% if slot.mm >= 2 %}#206bc4{% elif slot.mm > 0 %}#8fb8e8{% else %}#e6e8eb{% endif %}">&nbsp;</div>
-          {% if forloop.counter0|divisibleby:3 %}<small class="text-muted" style="font-size:9px">{{ slot.label }}</small>{% endif %}
+
+<div class="d-flex flex-column gap-3">
+  <!-- BAND A (top): plants + stats | quick log -->
+  <div class="row g-3 align-items-stretch">
+    <div class="col-12 col-xl-5 d-flex flex-column flex-sm-row gap-3">
+      <div class="card dh-dash-plants-card flex-sm-fill">
+        <div class="card-header">
+          <h3 class="card-title">Plants</h3>
+          <div class="card-actions">
+            <span class="badge bg-primary-lt" id="stat-plants">{{ plant_count }}</span>
+            <a href="{% url 'farm:plant_list' %}" class="btn btn-sm btn-outline-primary ms-2">View all</a>
+          </div>
         </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-    {% else %}
-    <div class="row align-items-center">
-      <div class="col-auto"><div class="display-1 text-muted"><i class="fas fa-cloud"></i></div></div>
-      <div class="col">
-        <div class="display-5 fw-bold">Forecast unavailable</div>
-        <div class="text-muted">Watering reminders work normally. Check your connection and hit Refresh.</div>
-      </div>
-    </div>
-    {% endif %}
-  </div>
-</div>
-<div class="row row-deck row-cards">
-  <div class="col-12">
-    <div class="card">
-      <div class="card-header"><h3 class="card-title">⚡ Quick log <small class="text-muted">— daily round in under 30 seconds</small></h3></div>
-      <div class="card-body d-flex flex-wrap gap-2 align-items-center">
-        <form method="post" action="{% url 'farm:quick_water_all' %}" class="quick-form m-0">{% csrf_token %}<button class="btn btn-primary">💧 Watered all ({{ plant_count }})</button></form>
-        <form method="post" action="{% url 'farm:quick_fertilize_all' %}" class="quick-form m-0">{% csrf_token %}<button class="btn btn-success">🌱 Fertilized all</button></form>
-        {% for a in areas %}
-        <form method="post" action="{% url 'farm:quick_water_all' %}" class="quick-form m-0">{% csrf_token %}<input type="hidden" name="area" value="{{ a.id }}"><button class="btn btn-outline-primary btn-sm">💧 Watered all {{ a.name }}</button></form>
-        {% endfor %}
-        <form method="post" action="{% url 'farm:quick_pest' %}" class="quick-form m-0 d-flex gap-1">{% csrf_token %}
-          <select name="plant" class="form-select form-select-sm" style="max-width:160px">{% for p in all_plants %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select>
-          <button class="btn btn-danger btn-sm">🐛 Pest spotted</button>
-        </form>
-      </div>
-    </div>
-  </div>
-</div>
-<br>
-<div class="row row-deck row-cards">
-  <div class="col-lg-6">
-    <div class="card">
-      <div class="card-header"><h3 class="card-title">Due now (water / fertilize / harvest)</h3></div>
-      <div class="list-group list-group-flush">
-        {% for r in due %}
-        <div class="list-group-item d-flex justify-content-between align-items-center">
-          <div><strong>{{ r.plant.name }}</strong> — {{ r.message }}<br><small class="text-muted">{{ r.due_date }}{% if r.due_date < today %} · overdue{% endif %}{% if r.weather_paused %} · paused for rain{% endif %}</small><br>{% include "farm/_reminder_badges.html" with r=r %}</div>
-          <form method="post" action="{% url 'farm:reminder_toggle_ajax' r.id %}" class="m-0 reminder-toggle-form">{% csrf_token %}<button class="btn btn-sm btn-success">Done</button></form>
+        <div class="list-group list-group-flush dh-dash-plants-list">
+          {% for p in plants %}
+          <a href="{% url 'farm:plant_detail' p.id %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center gap-2">
+            <span class="text-truncate min-w-0"><strong>{{ p.name }}</strong>{% if p.variety %} <span class="text-muted small">{{ p.variety }}</span>{% endif %}</span>
+            <span class="badge bg-secondary-lt text-nowrap">{{ p.get_status_display }}</span>
+          </a>
+          {% empty %}
+          <div class="list-group-item text-muted">No plants yet. <a href="{% url 'farm:plant_list' %}">Add your first plant</a>.</div>
+          {% endfor %}
         </div>
-        {% empty %}<div class="list-group-item text-muted">No due reminders. Plants are happy.</div>{% endfor %}
+      </div>
+
+      <div class="dh-stat-stack">
+        <a href="{% url 'farm:reminder_list' %}" class="card flex-fill text-decoration-none">
+          <div class="card-body d-flex flex-column justify-content-center">
+            <div class="subheader">Due reminders</div>
+            <div class="h1 text-danger mb-0" id="stat-due">{{ due_count }}</div>
+          </div>
+        </a>
+        <a href="{% url 'farm:plant_list' %}" class="card flex-fill text-decoration-none">
+          <div class="card-body d-flex flex-column justify-content-center">
+            <div class="subheader">Ready to harvest</div>
+            <div class="h1 text-success mb-0" id="stat-ready">{{ ready|length }}</div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <div class="col-12 col-xl-7 d-flex">
+      <div class="card flex-fill">
+        <div class="card-header">
+          <h3 class="card-title">⚡ Quick log <small class="text-muted">— daily round in under 30 seconds</small></h3>
+        </div>
+        <div class="card-body d-flex flex-column justify-content-center flex-fill">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <form method="post" action="{% url 'farm:quick_water_all' %}" class="quick-form m-0">{% csrf_token %}<button class="btn btn-primary"><i class="fas fa-droplet me-2"></i>Watered all ({{ plant_count }})</button></form>
+            <form method="post" action="{% url 'farm:quick_fertilize_all' %}" class="quick-form m-0">{% csrf_token %}<button class="btn btn-success"><i class="fas fa-seedling me-2"></i>Fertilized all</button></form>
+            <form method="post" action="{% url 'farm:quick_pest' %}" class="quick-form m-0 d-flex align-items-center gap-2">
+              {% csrf_token %}
+              <select name="plant" class="form-select w-auto" style="min-width:160px">{% for p in all_plants %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select>
+              <button class="btn btn-danger"><i class="fas fa-bug me-2"></i>Pest spotted</button>
+            </form>
+          </div>
+          {% if areas %}
+          <div class="dh-quicklog-areas d-flex flex-wrap align-items-center gap-2 mt-3 pt-3">
+            <span class="dh-quicklog-label me-1">Water by area</span>
+            {% for a in areas %}
+            <form method="post" action="{% url 'farm:quick_water_all' %}" class="quick-form m-0">{% csrf_token %}<input type="hidden" name="area" value="{{ a.id }}"><button class="btn btn-outline-primary btn-sm"><i class="fas fa-droplet me-1"></i>{{ a.name }}</button></form>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
       </div>
     </div>
   </div>
-  <div class="col-lg-6">
-    <div class="card">
-      <div class="card-header"><h3 class="card-title">Ready to harvest</h3></div>
-      <div class="list-group list-group-flush">
-        {% for p in ready %}
-        <a href="{% url 'farm:plant_detail' p.id %}" class="list-group-item"><strong>{{ p.name }}</strong> {{ p.variety }} — expected {{ p.expected_harvest_date }}</a>
-        {% empty %}<div class="list-group-item text-muted">Nothing ready yet.</div>{% endfor %}
+
+  <!-- BAND B (bottom): weather | due / ready / upcoming -->
+  <div class="row g-3 align-items-stretch">
+    <div class="col-12 col-xl-5 d-flex">
+      <div class="card flex-fill{% if weather.state == 'ok' and weather.skip_watering %} card-active{% endif %}">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-cloud-sun me-2"></i>Weather now{% if weather.city %} — {{ weather.city }}{% endif %}</h3>
+        <div class="card-actions">
+          <form method="post" action="{% url 'farm:weather_refresh' %}" class="m-0">{% csrf_token %}<button class="btn btn-sm btn-outline-primary" title="Fetch fresh forecast"><i class="fas fa-rotate"></i></button></form>
+        </div>
+      </div>
+      <div class="card-body d-flex flex-column flex-fill">
+        {% if weather.state == 'ok' %}
+        <div class="d-flex align-items-center gap-3">
+          <div class="display-5 {% if weather.skip_watering %}text-primary{% else %}text-warning{% endif %}">
+            {% if weather.skip_watering %}<i class="fas fa-cloud-showers-heavy"></i>{% else %}<i class="fas fa-sun"></i>{% endif %}
+          </div>
+          <div class="flex-fill min-w-0">
+            <div class="h1 mb-0">{{ weather.rain_mm }}<small class="text-muted fs-4"> mm / 24h</small></div>
+            {% if weather.skip_watering %}
+            <div class="h3 text-primary mt-1 mb-0">Skip watering — heavy rain coming</div>
+            <div class="text-muted small">Over the {{ weather.threshold_mm }} mm pause threshold. Watering alerts can be paused.</div>
+            {% else %}
+            <div class="h3 text-success mt-1 mb-0">Water as normal</div>
+            <div class="text-muted small">Under the {{ weather.threshold_mm }} mm pause threshold. No heavy rain in the next 24h.</div>
+            {% endif %}
+          </div>
+        </div>
+        {% if weather.skip_watering %}
+        <form method="post" action="{% url 'farm:weather_adjust' %}" class="mt-2">{% csrf_token %}<button class="btn btn-info btn-sm w-100"><i class="fas fa-pause me-2"></i>Pause watering reminders</button></form>
+        {% endif %}
+        {% if weather.hourly %}
+        <div class="mt-3 d-flex flex-column flex-fill">
+          <div class="subheader mb-1">Rain by hour (next 24h)</div>
+          <div class="d-flex align-items-end gap-1 min-w-0 flex-fill dh-rain-chart">
+            {% for slot in weather.hourly %}
+            <div class="flex-fill text-center" title="{{ slot.label }}: {{ slot.mm }} mm">
+              <div class="mx-auto rounded" style="height:{{ slot.h }}%;min-height:{% if slot.mm > 0 %}4px{% else %}2px{% endif %};background:{% if slot.mm >= 2 %}var(--tblr-primary){% elif slot.mm > 0 %}color-mix(in srgb, var(--tblr-primary) 50%, #ffffff){% else %}#e6e8eb{% endif %}">&nbsp;</div>
+              {% if forloop.counter0|divisibleby:3 %}<small class="text-muted" style="font-size:9px">{{ slot.label }}</small>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="d-flex align-items-center gap-3">
+          <div class="display-5 text-muted"><i class="fas fa-cloud"></i></div>
+          <div class="flex-fill">
+            <div class="h3 fw-bold mb-1">Forecast unavailable</div>
+            <div class="text-muted small">Watering reminders work normally. Check your connection and hit refresh.</div>
+          </div>
+        </div>
+        {% endif %}
       </div>
     </div>
-    <br>
-    <div class="card">
-      <div class="card-header"><h3 class="card-title">Upcoming</h3></div>
-      <div class="list-group list-group-flush">
-        {% for r in upcoming %}
-        <div class="list-group-item"><strong>{{ r.plant.name }}</strong> — {{ r.message }}<br><small class="text-muted">{{ r.due_date }}</small></div>
-        {% empty %}<div class="list-group-item text-muted">No upcoming reminders.</div>{% endfor %}
+    </div>
+
+    <div class="col-12 col-xl-7 d-flex">
+      <div class="row row-cards g-3 flex-fill">
+
+      <!-- Due now -->
+      <div class="col-12 col-md-4 d-flex">
+        <div class="card h-100 w-100">
+          <div class="card-header">
+            <h3 class="card-title">Due now <span class="d-block small text-muted fw-normal">water / fertilize / harvest</span></h3>
+            <div class="card-actions"><span class="badge bg-danger-lt">{{ due_count }}</span></div>
+          </div>
+          <div class="card-body p-0">
+            <div class="list-group list-group-flush dh-dash-scroll">
+              {% for r in due %}
+              <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                  <div class="min-w-0">
+                    <strong>{{ r.plant.name }}</strong>
+                    <div class="small text-muted">{{ r.message }}</div>
+                    <div class="small text-muted">{{ r.due_date }}{% if r.due_date < today %} · <span class="text-danger">overdue</span>{% endif %}{% if r.weather_paused %} · paused for rain{% endif %}</div>
+                    {% include "farm/_reminder_badges.html" with r=r %}
+                  </div>
+                  <form method="post" action="{% url 'farm:reminder_toggle_ajax' r.id %}" class="m-0 reminder-toggle-form">{% csrf_token %}<button class="btn btn-sm btn-success">Done</button></form>
+                </div>
+              </div>
+              {% empty %}<div class="list-group-item text-muted">No due reminders. Plants are happy.</div>{% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ready to harvest -->
+      <div class="col-12 col-md-4 d-flex">
+        <div class="card h-100 w-100">
+          <div class="card-header">
+            <h3 class="card-title">Ready to harvest</h3>
+            <div class="card-actions"><span class="badge bg-success-lt">{{ ready|length }}</span></div>
+          </div>
+          <div class="card-body p-0">
+            <div class="list-group list-group-flush dh-dash-scroll">
+              {% for p in ready %}
+              <a href="{% url 'farm:plant_detail' p.id %}" class="list-group-item list-group-item-action">
+                <strong>{{ p.name }}</strong>{% if p.variety %} <span class="text-muted small">{{ p.variety }}</span>{% endif %}
+                <div class="small text-muted">Expected {{ p.expected_harvest_date }}</div>
+              </a>
+              {% empty %}<div class="list-group-item text-muted">Nothing ready yet.</div>{% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upcoming -->
+      <div class="col-12 col-md-4 d-flex">
+        <div class="card h-100 w-100">
+          <div class="card-header">
+            <h3 class="card-title">Upcoming</h3>
+          </div>
+          <div class="card-body p-0">
+            <div class="list-group list-group-flush dh-dash-scroll dh-upcoming-list">
+              {% for r in upcoming %}
+              <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-baseline gap-2">
+                  <strong class="text-truncate">{{ r.plant.name }}</strong>
+                  <span class="small text-muted text-nowrap">{{ r.due_date }}</span>
+                </div>
+                <div class="small text-muted mt-1">{{ r.message }}</div>
+              </div>
+              {% empty %}<div class="list-group-item text-muted">No upcoming reminders.</div>{% endfor %}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
+  </div>
   </div>
 </div>
 {% endblock %}
+
 {% block extra_js %}
 <script>
 document.querySelectorAll('.reminder-toggle-form').forEach(f => {

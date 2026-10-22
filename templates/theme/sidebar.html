@@ -1,170 +1,139 @@
-<aside class="navbar navbar-vertical navbar-expand-lg navbar-dark dh-sidebar">
-  <div class="container-fluid">
-    <div class="navbar-brand navbar-brand-autodark dh-brand">
-      <a href="." class="d-flex align-items-center gap-2 text-decoration-none min-w-0">
-        <span class="dh-brand-mark dh-brand-leaf">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M12 2C7.5 7 4.5 11.5 4.5 15.5a7.5 7.5 0 0 0 7.5 7.5c4 0 7.5-3.5 7.5-7.5C19.5 11 16.5 6.5 12 2Z" fill="#4ade80"/>
-            <path d="M12 5.5V20M12 10l-3.5-2M12 13.5 8 12M12 13.5l4-1.5M12 10l3.5-2" stroke="#166534" stroke-width="1.3" stroke-linecap="round"/>
+<aside class="navbar navbar-vertical navbar-expand-lg navbar-dark dh-sidebar dh-sidebar-dark">
+  <div class="container-fluid p-0">
+    <!-- Brand mark (icon-only, flat vector) -->
+    <div class="navbar-brand dh-brand-dark text-center py-4 px-2 border-bottom border-neon">
+      <a href="{% url 'dashboard' %}" class="d-flex flex-column align-items-center gap-1 text-decoration-none" title="Go to Dashboard" aria-label="MOSQUERA Farm Logs — Dashboard">
+        <span class="dh-brand-mark dh-brand-leaf d-inline-flex">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="width:1.6rem;height:1.6rem;">
+            <path d="M12 2C7.5 7 4.5 11.5 4.5 15.5a7.5 7.5 0 0 0 7.5 7.5c4 0 7.5-3.5 7.5-7.5C19.5 11 16.5 6.5 12 2Z" fill="var(--tblr-primary)"/>
+            <path d="M12 5.5V20M12 10l-3.5-2M12 13.5 8 12M12 13.5l4-1.5M12 10l3.5-2" stroke="#a855f7" stroke-width="1.3" stroke-linecap="round"/>
           </svg>
-        </span>
-        <span class="lh-1 min-w-0 flex-grow-1">
-          <span class="dh-brand-name">MOSQUERA <span class="text-warning">Farm Logs</span></span>
-          <span class="dh-brand-sub">Farm Management System</span>
         </span>
       </a>
     </div>
 
-    <button
-      class="navbar-toggler"
-      type="button"
-      data-bs-toggle="collapse"
-      data-bs-target="#sidebar-menu"
-      aria-controls="sidebar-menu"
-      aria-expanded="false"
-      aria-label="Toggle navigation"
+    <!-- Icon-only navigation -->
+    <ul class="navbar-nav flex-fill pt-2">
+      <!-- Dashboard -->
+      <li class="nav-item">
+        <a class="nav-link nav-link-dark {% if request.resolver_match.url_name == 'dashboard' and request.resolver_match.namespace == '' %}active{% endif %}" href="{% url 'dashboard' %}" title="Dashboard" data-bs-toggle="tooltip" data-bs-placement="right">
+          <span class="nav-link-icon-wrap"><i class="fas fa-dashboard"></i></span>
+        </a>
+      </li>
+
+      <!-- Users (superuser only) -->
+      {% if user.is_superuser %}
+      <li class="nav-item">
+        <a class="nav-link nav-link-dark {% if request.resolver_match.app_name == 'users' %}active{% endif %}" href="{% url 'users:user_list' %}" title="Users" data-bs-toggle="tooltip" data-bs-placement="right">
+          <span class="nav-link-icon-wrap"><i class="fas fa-users"></i></span>
+        </a>
+      </li>
+      {% endif %}
+
+      <!-- Info -->
+      <li class="nav-item">
+        <a class="nav-link nav-link-dark {% if request.resolver_match.app_name == 'info' %}active{% endif %}" href="{% url 'info:info_list' %}" title="Info" data-bs-toggle="tooltip" data-bs-placement="right">
+          <span class="nav-link-icon-wrap"><i class="fas fa-address-card"></i></span>
+        </a>
+      </li>
+
+      <!-- Farm Dashboard -->
+      <li class="nav-item">
+        <a class="nav-link nav-link-dark nav-link-farm {% if request.resolver_match.namespace == 'farm' and request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'farm:dashboard' %}" title="Farm Dashboard" data-bs-toggle="tooltip" data-bs-placement="right">
+          <span class="nav-link-icon-wrap"><i class="fas fa-seedling"></i></span>
+        </a>
+      </li>
+
+      <!-- Plants -->
+      <li class="nav-item">
+        <a class="nav-link nav-link-dark nav-link-farm {% if request.resolver_match.namespace == 'farm' and request.resolver_match.url_name == 'plant_list' or request.resolver_match.namespace == 'farm' and request.resolver_match.url_name == 'plant_detail' %}active{% endif %}" href="{% url 'farm:plant_list' %}" title="Plants" data-bs-toggle="tooltip" data-bs-placement="right">
+          <span class="nav-link-icon-wrap"><i class="fas fa-leaf"></i></span>
+          <span class="nav-badge {% if not nav_plant_count %}d-none{% endif %}" id="nav-badge-plants">{{ nav_plant_count|default:"" }}</span>
+        </a>
+      </li>
+
+      <!-- Reminders -->
+      <li class="nav-item">
+        <a class="nav-link nav-link-dark nav-link-farm {% if request.resolver_match.namespace == 'farm' and request.resolver_match.url_name == 'reminder_list' %}active{% endif %}" href="{% url 'farm:reminder_list' %}" title="Reminders" data-bs-toggle="tooltip" data-bs-placement="right">
+          <span class="nav-link-icon-wrap"><i class="fas fa-bell"></i></span>
+          <span class="nav-badge {% if not nav_due_count %}d-none{% endif %}" id="nav-badge-due">{{ nav_due_count|default:"" }}</span>
+        </a>
+      </li>
+
+      <!-- Care Logs -->
+      <li class="nav-item">
+        <a class="nav-link nav-link-dark nav-link-farm {% if request.resolver_match.namespace == 'farm' and request.resolver_match.url_name == 'carelog_list' %}active{% endif %}" href="{% url 'farm:carelog_list' %}" title="Care Logs" data-bs-toggle="tooltip" data-bs-placement="right">
+          <span class="nav-link-icon-wrap"><i class="fas fa-book"></i></span>
+        </a>
+      </li>
+
+      <!-- Garden Map -->
+      <li class="nav-item">
+        <a class="nav-link nav-link-dark nav-link-farm {% if request.resolver_match.namespace == 'farm' and request.resolver_match.url_name == 'map' %}active{% endif %}" href="{% url 'farm:map' %}" title="Garden Map" data-bs-toggle="tooltip" data-bs-placement="right">
+          <span class="nav-link-icon-wrap"><i class="fas fa-map"></i></span>
+        </a>
+      </li>
+
+      <!-- Garden Areas -->
+      <li class="nav-item">
+        <a class="nav-link nav-link-dark nav-link-farm {% if request.resolver_match.namespace == 'farm' and request.resolver_match.url_name == 'area_list' %}active{% endif %}" href="{% url 'farm:area_list' %}" title="Garden Areas" data-bs-toggle="tooltip" data-bs-placement="right">
+          <span class="nav-link-icon-wrap"><i class="fas fa-border-all"></i></span>
+        </a>
+      </li>
+    </ul>
+
+    <!-- Bottom controls: settings + avatar, stacked vertically with equal gaps -->
+    <div class="dh-sidebar-bottom mt-auto">
+      <a
+        href="#"
+        class="dh-settings-trigger"
+        data-bs-toggle="offcanvas"
+        data-bs-target="#offcanvasSettings"
+        aria-controls="offcanvasSettings"
+        aria-label="Theme Settings"
+        title="Theme Settings"
       >
-      <span class="navbar-toggler-icon"></span>
-    </button>
-
-    <div class="collapse navbar-collapse" id="sidebar-menu">
-      <ul class="navbar-nav pt-lg-2 py-lg-2">
-
-        <li class="nav-item">
-          <span class="dh-nav-section">
-            Menu
-          </span>
-        </li>
-        <li class="nav-item mb-1">
-          <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' and request.resolver_match.namespace == '' %}active{% endif %}" href="{% url 'dashboard' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="fas fa-dashboard"></i>
-            </span>
-            <span class="nav-link-title">Dashboard</span>
-          </a>
-        </li>
-
-        {% if user.is_superuser %}
-        <li class="nav-item">
-          <a class="nav-link {% if request.resolver_match.app_name == 'users' %}active{% endif %}" href="{% url 'users:user_list' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="nav-icon fas fa-users"></i>
-            </span>
-            <span class="nav-link-title">Users</span>
-          </a>
-        </li>
-        {% endif %}
-
-        <li class="nav-item">
-          <a class="nav-link {% if request.resolver_match.app_name == 'info' %}active{% endif %}" href="{% url 'info:info_list' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="nav-icon fas fa-address-card"></i>
-            </span>
-            <span class="nav-link-title">Info</span>
-          </a>
-        </li>
-
-        <li class="nav-item">
-          <button class="dh-nav-section dh-nav-toggle w-100 text-start" id="farmMenuToggle" type="button" aria-expanded="{% if request.resolver_match.namespace == 'farm' %}true{% else %}false{% endif %}" aria-controls="farmMenu">
-            Mosquera Farm Log
-            <i class="fas fa-chevron-down dh-nav-caret"></i>
-          </button>
-        </li>
-        <div id="farmMenu" {% if request.resolver_match.namespace != 'farm' %}class="d-none"{% endif %}>
-        <li class="nav-item mb-1">
-          <a class="nav-link nav-link-farm {% if request.resolver_match.namespace == 'farm' and request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'farm:dashboard' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="fas fa-seedling"></i>
-            </span>
-            <span class="nav-link-title">Farm Dashboard</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link nav-link-farm {% if request.resolver_match.namespace == 'farm' and request.resolver_match.url_name == 'plant_list' or request.resolver_match.namespace == 'farm' and request.resolver_match.url_name == 'plant_detail' %}active{% endif %}" href="{% url 'farm:plant_list' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="fas fa-leaf"></i>
-            </span>
-            <span class="nav-link-title">Plants</span>
-            <span class="badge bg-green-lt text-green ms-auto count-badge {% if not nav_plant_count %}d-none{% endif %}" id="nav-badge-plants">{{ nav_plant_count|default:"" }}</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link nav-link-farm {% if request.resolver_match.namespace == 'farm' and request.resolver_match.url_name == 'reminder_list' %}active{% endif %}" href="{% url 'farm:reminder_list' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="fas fa-bell"></i>
-            </span>
-            <span class="nav-link-title">Reminders</span>
-            <span class="badge bg-danger-lt text-danger ms-auto count-badge {% if not nav_due_count %}d-none{% endif %}" id="nav-badge-due">{{ nav_due_count|default:"" }}</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link nav-link-farm {% if request.resolver_match.namespace == 'farm' and request.resolver_match.url_name == 'carelog_list' %}active{% endif %}" href="{% url 'farm:carelog_list' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="fas fa-book"></i>
-            </span>
-            <span class="nav-link-title">Care Logs</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link nav-link-farm {% if request.resolver_match.namespace == 'farm' and request.resolver_match.url_name == 'map' %}active{% endif %}" href="{% url 'farm:map' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="fas fa-map"></i>
-            </span>
-            <span class="nav-link-title">Garden Map</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link nav-link-farm {% if request.resolver_match.namespace == 'farm' and request.resolver_match.url_name == 'area_list' %}active{% endif %}" href="{% url 'farm:area_list' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="fas fa-border-all"></i>
-            </span>
-            <span class="nav-link-title">Garden Areas</span>
-          </a>
-        </li>
-        </li>
-        </div>
-
-        {% if user.is_authenticated %}
-        <li class="nav-item d-lg-none">
-          <a class="nav-link" href="{% url 'logout' %}">
-            <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="nav-icon fas fa-sign-out-alt"></i>
-            </span>
-            <span class="nav-link-title">Logout</span>
-          </a>
-        </li>
-        {% endif %}
-
-        <li class="nav-item mt-auto dh-nav-sidebar-footer">
-          <div class="dh-user-card">
-            <a href="{% if user.is_superuser %}{% url 'users:user_list' %}{% else %}{% url 'dashboard' %}{% endif %}" class="d-flex align-items-center gap-2 text-decoration-none text-white min-w-0 w-100">
-              <span class="dh-avatar">{{ user.username|first|upper }}</span>
-              <span class="min-w-0 flex-grow-1">
-                <span class="dh-user-name">{{ user.username }}</span>
-                <span class="dh-user-role">
-                  {% if user.is_superuser %}Administrator{% elif user.is_staff %}Staff{% elif user.is_authenticated %}User{% endif %}
-                </span>
-              </span>
-            </a>
-            {% if user.is_authenticated %}
-            <a href="{% url 'logout' %}" class="dh-user-logout" title="Logout">
-              <i class="fas fa-sign-out-alt"></i>
-            </a>
-            {% endif %}
-          </div>
-        </li>
-
-      </ul>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M3 21v-4a4 4 0 1 1 4 4h-4" />
+          <path d="M21 3a16 16 0 0 0 -12.8 10.2" />
+          <path d="M21 3a16 16 0 0 1 -10.2 12.8" />
+          <path d="M10.6 9a9 9 0 0 1 4.4 4.4" />
+        </svg>
+      </a>
+      {% if user.is_authenticated %}
+      <a href="{% url 'logout' %}" class="dh-user-avatar-link dh-logout-trigger" title="Log out" aria-label="Log out">
+        <span class="dh-avatar-dark">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2" />
+            <path d="M9 12h12l-3 -3" />
+            <path d="M18 15l3 -3" />
+          </svg>
+        </span>
+      </a>
+      {% endif %}
     </div>
+
   </div>
 </aside>
-<script>
-(function(){
-  var toggle=document.getElementById('farmMenuToggle'), menu=document.getElementById('farmMenu');
-  if(!toggle||!menu) return;
-  toggle.addEventListener('click',function(){
-    var open=menu.classList.toggle('d-none')===false;
-    toggle.setAttribute('aria-expanded',open?'true':'false');
-  });
-})();
-</script>

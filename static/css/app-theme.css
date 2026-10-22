@@ -1,9 +1,11 @@
 :root,
 [data-bs-theme="light"] {
+  --tblr-accent: #10b981;
+  --tblr-primary: #10b981;
+  --tblr-primary-rgb: 16, 185, 129;
   --tblr-primary-hover: color-mix(in srgb, var(--tblr-primary) 87%, #141733);
   --tblr-primary-active: color-mix(in srgb, var(--tblr-primary) 78%, #141733);
   --tblr-primary-lt: color-mix(in srgb, var(--tblr-primary) 12%, #ffffff);
-  --tblr-accent: #f8b84e;
   --tblr-body-bg: #f3f4fb;
   --tblr-body-bg-rgb: 243, 244, 251;
   --tblr-body-color: #232741;
@@ -31,20 +33,10 @@
   --tblr-link-hover-color: var(--tblr-primary-active);
 }
 
-:root:not([data-bs-theme-primary]),
-[data-bs-theme="light"]:not([data-bs-theme-primary]) {
-  --tblr-primary: #6366f1;
-  --tblr-primary-rgb: 99, 102, 241;
-}
-
+[data-bs-theme-primary],
 [data-bs-theme="dark"]:not([data-bs-theme-primary]) {
-  --tblr-primary: #7c82f5;
-  --tblr-primary-rgb: 124, 130, 245;
-}
-
-[data-bs-theme-primary="indigo"] {
-  --tblr-primary: #6366f1;
-  --tblr-primary-rgb: 99, 102, 241;
+  --tblr-primary: #10b981;
+  --tblr-primary-rgb: 16, 185, 129;
 }
 
 [data-bs-theme="dark"],
@@ -238,10 +230,9 @@ html {
   --tblr-navbar-hover-color: #ffffff;
   --tblr-navbar-active-color: #ffffff;
   --tblr-navbar-disabled-color: rgba(255, 255, 255, 0.35);
-  --tblr-navbar-active-bg: rgba(255, 255, 255, 0.08);
+  --tblr-navbar-active-bg: color-mix(in srgb, var(--tblr-primary) 20%, transparent);
   background:
     radial-gradient(120% 70% at 100% 0%, color-mix(in srgb, var(--tblr-primary) 18%, transparent) 0%, transparent 55%),
-    radial-gradient(100% 45% at 50% 100%, rgba(34, 197, 94, 0.16) 0%, transparent 60%),
     linear-gradient(180deg, #151737 0%, #101224 100%);
 }
 
@@ -260,13 +251,13 @@ html {
   border-radius: 0.75rem;
   color: #fff;
   font-size: 1rem;
-  background: linear-gradient(135deg, var(--tblr-primary) 0%, #8b5cf6 100%);
-  box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--tblr-primary) 80%, transparent);
+  background: var(--tblr-primary);
+  box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--tblr-primary) 60%, transparent);
 }
 
 .dh-brand-leaf {
-  background: linear-gradient(135deg, #16a34a 0%, #4ade80 100%);
-  box-shadow: 0 6px 16px -6px rgba(34, 197, 94, 0.7);
+  background: var(--tblr-primary);
+  box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--tblr-primary) 60%, transparent);
 }
 
 .dh-brand-leaf svg {
@@ -345,7 +336,7 @@ html {
 }
 
 .dh-sidebar .navbar-nav .nav-link-farm .nav-link-icon {
-  color: #4ade80;
+  color: var(--tblr-primary);
 }
 
 .dh-sidebar .navbar-nav .nav-link-farm:hover .nav-link-icon,
@@ -452,8 +443,8 @@ html {
   color: #fff;
   font-weight: 700;
   font-size: 0.9rem;
-  background: linear-gradient(135deg, #f8b84e 0%, #f59f00 100%);
-  box-shadow: 0 4px 10px -4px rgba(245, 159, 0, 0.8);
+  background: var(--tblr-primary);
+  box-shadow: 0 4px 10px -4px color-mix(in srgb, var(--tblr-primary) 55%, transparent);
 }
 
 .dh-user-name {
@@ -540,22 +531,9 @@ html {
   overflow: hidden;
   border-radius: var(--tblr-border-radius-xl);
   padding: 1.75rem 2rem;
-  background:
-    radial-gradient(90% 120% at 100% 0%, rgba(139, 92, 246, 0.28) 0%, transparent 55%),
-    linear-gradient(120deg, #171a3b 0%, #1f2352 55%, #2d2f74 100%);
+  background: var(--tblr-primary);
   color: #fff;
-  box-shadow: 0 20px 40px -22px rgba(23, 26, 54, 0.6);
-}
-
-.dh-hero::after {
-  content: "";
-  position: absolute;
-  right: -4rem;
-  top: -6rem;
-  width: 20rem;
-  height: 20rem;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(248, 184, 78, 0.16) 0%, transparent 65%);
+  box-shadow: 0 20px 40px -22px color-mix(in srgb, var(--tblr-primary) 45%, transparent);
 }
 
 .dh-hero-inner {
@@ -568,7 +546,7 @@ html {
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .dh-hero-title {
@@ -579,22 +557,22 @@ html {
 }
 
 .dh-hero-sub {
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.8);
   font-size: 0.9rem;
   max-width: 40rem;
 }
 
 .dh-hero .btn-accent {
-  background: #f8b84e;
-  color: #1c1e36;
+  background: #ffffff;
+  color: var(--tblr-primary);
   font-weight: 700;
   border: 0;
-  box-shadow: 0 8px 18px -8px rgba(248, 184, 78, 0.7);
+  box-shadow: 0 6px 14px -6px rgba(0, 0, 0, 0.15);
 }
 
 .dh-hero .btn-accent:hover {
-  background: #ffc85c;
-  color: #1c1e36;
+  background: #f1f5f9;
+  color: var(--tblr-primary);
 }
 
 .dh-welcome-row {
@@ -616,31 +594,19 @@ html {
   border-top: 1px solid var(--tblr-border-color);
 }
 
-.stat-card-primary {
+.stat-card-primary,
+.stat-card-success,
+.stat-card-info,
+.stat-card-warning {
   --dh-stat-from: var(--tblr-primary);
   --dh-stat-to: color-mix(in srgb, var(--tblr-primary) 72%, #141733);
-}
-
-.stat-card-success {
-  --dh-stat-from: #22c55e;
-  --dh-stat-to: #16a34a;
-}
-
-.stat-card-info {
-  --dh-stat-from: #06b6d4;
-  --dh-stat-to: #0891b2;
-}
-
-.stat-card-warning {
-  --dh-stat-from: #f59e0b;
-  --dh-stat-to: #ea580c;
 }
 
 .stat-card {
   overflow: hidden;
   position: relative;
   border: 0;
-  box-shadow: 0 12px 24px -14px rgba(23, 26, 54, 0.35);
+  box-shadow: 0 12px 24px -14px color-mix(in srgb, var(--tblr-primary) 35%, transparent);
 }
 
 .stat-card::before {
@@ -807,9 +773,7 @@ html {
 
 body {
   background-image:
-    radial-gradient(45rem 22rem at 85% -5%, rgba(var(--tblr-primary-rgb), 0.16) 0%, transparent 60%),
-    radial-gradient(40rem 24rem at 8% 108%, rgba(34, 197, 94, 0.16) 0%, transparent 60%),
-    radial-gradient(30rem 20rem at 50% 40%, rgba(139, 92, 246, 0.1) 0%, transparent 65%);
+    radial-gradient(45rem 22rem at 85% -5%, rgba(var(--tblr-primary-rgb), 0.16) 0%, transparent 60%);
 }
 
 .card,
@@ -910,4 +874,344 @@ body {
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   border: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+/* ============================================================
+   Dark Navy Icon-Only Sidebar — MOSQUERA Farm Logs
+   Optimized: compact width, snug active tile, floating badges,
+   consistent vertical gap, flat vector UI, purple neon active
+   ============================================================ */
+
+.navbar.navbar-vertical.dh-sidebar-dark {
+  --dh-sidebar-bg: #0b1021;
+  --dh-sidebar-active: #a855f7;
+  --dh-sidebar-active-rgb: 168, 85, 247;
+  --dh-sidebar-neon: rgba(168, 85, 247, 0.35);
+  --dh-sidebar-hover: rgba(255, 255, 255, 0.04);
+  --dh-sidebar-border: rgba(255, 255, 255, 0.06);
+  --dh-sidebar-width: 64px; /* w-16 equivalent — tightly fits icons */
+
+  width: var(--dh-sidebar-width);
+  min-width: var(--dh-sidebar-width);
+  max-width: var(--dh-sidebar-width);
+  flex: 0 0 var(--dh-sidebar-width);
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  background: linear-gradient(180deg, #0e1526 0%, #0a0c1a 100%);
+  border-right: 1px solid var(--dh-sidebar-border);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02),
+              20px 0 40px -10px rgba(0, 0, 0, 0.4);
+}
+
+.navbar.navbar-vertical.dh-sidebar-dark::-webkit-scrollbar {
+  display: none;
+}
+
+/* Tabler forces 15rem on the page wrapper — match the compact rail width */
+@media (min-width: 992px) {
+  .navbar.navbar-vertical.dh-sidebar-dark ~ .page-wrapper {
+    margin-left: 64px;
+  }
+}
+
+.dh-sidebar-dark .navbar-brand {
+  padding: 0.75rem 0;
+  height: 64px;
+  border-bottom: 1px solid var(--dh-sidebar-border);
+  background: transparent;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dh-brand-mark {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, var(--dh-sidebar-active) 0%, #7c3aed 100%);
+  box-shadow: 0 0 18px var(--dh-sidebar-neon);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.dh-brand-mark svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  filter: drop-shadow(0 0 6px var(--dh-sidebar-neon));
+}
+
+/* Hide text labels, dropdown arrows, togglers — icon-only */
+.dh-sidebar-dark .dh-nav-section,
+.dh-sidebar-dark .navbar-toggler,
+.dh-sidebar-dark .nav-link-title,
+.dh-sidebar-dark .dh-nav-caret,
+.dh-sidebar-dark .dh-nav-toggle {
+  display: none !important;
+}
+
+/* Consistent compact vertical gap between icons (gap-3/gap-4) */
+.dh-sidebar-dark .navbar-nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+  width: 100%;
+}
+
+/* Icon-only nav link — compact square container (high specificity to
+   override the legacy .dh-sidebar pill rules above) */
+.dh-sidebar.dh-sidebar-dark .navbar-nav .nav-link.nav-link-dark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  gap: 0;
+  border-radius: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 1.2rem;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: visible;
+  border: 1px solid transparent;
+  background-color: transparent;
+  background-image: none;
+}
+
+.dh-sidebar.dh-sidebar-dark .navbar-nav .nav-link.nav-link-dark:hover {
+  color: #ffffff;
+  background-color: var(--dh-sidebar-hover);
+  background-image: none;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.14);
+  transform: translateY(-1px);
+}
+
+/* Active state — small rounded tile wrapped snugly around the icon */
+.dh-sidebar.dh-sidebar-dark .navbar-nav .nav-link.nav-link-dark.active {
+  color: var(--dh-sidebar-active);
+  background-color: color-mix(in srgb, var(--dh-sidebar-active) 22%, transparent);
+  background-image: none;
+  border: 1px solid rgba(168, 85, 247, 0.45);
+  box-shadow: 0 0 22px var(--dh-sidebar-neon),
+              inset 0 0 0 1px rgba(168, 85, 247, 0.5);
+}
+
+.dh-sidebar-dark .nav-link-dark.active i {
+  color: var(--dh-sidebar-active);
+  filter: drop-shadow(0 0 10px var(--dh-sidebar-neon));
+}
+
+/* Icon wrapper — keeps the icon centered inside the active tile */
+.dh-sidebar-dark .nav-link-icon-wrap {
+  width: 100%;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Badge — small floating overlay on top-right corner of the icon */
+.dh-sidebar-dark .nav-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--dh-sidebar-active);
+  color: #000;
+  font-size: 0.6rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 10px var(--dh-sidebar-neon);
+  border: 1px solid #fff;
+  z-index: 2;
+}
+
+/* Bottom controls — brush trigger and avatar stacked with equal gaps */
+.dh-sidebar-dark .dh-sidebar-bottom {
+  width: 100%;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.dh-settings-trigger {
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--tblr-primary);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--tblr-primary) 38%, transparent);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.dh-settings-trigger svg {
+  width: 20px;
+  height: 20px;
+}
+
+.dh-settings-trigger:hover {
+  color: #fff;
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--tblr-primary) 55%, transparent);
+}
+
+.dh-user-avatar-link {
+  display: inline-flex;
+  border-radius: 10px;
+  text-decoration: none;
+}
+
+.dh-avatar-dark {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--dh-sidebar-active) 0%, #7c3aed 100%);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 14px var(--dh-sidebar-neon);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.dh-avatar-dark svg {
+  width: 17px;
+  height: 17px;
+}
+
+.dh-logout-trigger {
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.dh-logout-trigger:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.dh-logout-trigger:hover .dh-avatar-dark {
+  box-shadow: 0 0 20px var(--dh-sidebar-neon);
+}
+
+/* Keep the rail consistent below the Tabler desktop breakpoint */
+.navbar.navbar-vertical.dh-sidebar-dark > .container-fluid {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 0;
+}
+
+@media (max-width: 991.98px) {
+  .navbar.navbar-vertical.dh-sidebar-dark {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 1030;
+  }
+
+  .navbar.navbar-vertical.dh-sidebar-dark ~ .page-wrapper {
+    margin-left: 64px;
+  }
+}
+
+/* Farm dashboard layout helpers */
+.min-w-0 {
+  min-width: 0;
+}
+
+.dh-dash-scroll {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+/* Stat stack locks its edges to the plants card via flex stretch */
+.dh-dash-plants-card {
+  min-height: 0;
+  min-width: 0;
+}
+
+.dh-stat-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 0;
+  min-width: 0;
+}
+
+@media (min-width: 576px) {
+  .dh-stat-stack {
+    flex: 0 0 42%;
+  }
+}
+
+.dh-dash-plants-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+@media (max-width: 1199.98px) {
+  .dh-dash-plants-list {
+    max-height: 340px;
+  }
+}
+
+/* Quick log grouping */
+.dh-quicklog-areas {
+  border-top: 1px solid var(--tblr-border-color-translucent);
+}
+
+.dh-quicklog-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tblr-muted);
+}
+
+/* Upcoming list readability */
+.dh-upcoming-list .list-group-item {
+  padding-top: 0.9rem;
+  padding-bottom: 0.9rem;
+  line-height: 1.5;
+}
+
+.dh-upcoming-list .list-group-item + .list-group-item {
+  border-top-color: var(--tblr-border-color-translucent);
+}
+
+/* Rain chart grows with the weather card (band B stretch) */
+.dh-rain-chart {
+  min-height: 56px;
+}
+
+/* Ensure tooltip shows label on hover for icon-only sidebar */
+.dh-sidebar-dark [data-bs-toggle="tooltip"] {
+  cursor: pointer;
 }

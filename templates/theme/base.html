@@ -61,7 +61,7 @@
         </div>
     </div>
    
-    {% include 'theme/settings.html' %}
+    {% include 'theme/settings.html' with show_settings_button=False %}
 
     <script src="{% static 'js/tabler-theme.js' %}"></script>
     <script src="{% static 'libs/apexcharts/dist/apexcharts.min.js' %}" defer></script>
