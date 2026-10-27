@@ -8,10 +8,20 @@ from django.db import IntegrityError
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
+from .crops import crop_guide_payload
 from .models import CareLog, DailyCheck, GardenArea, Plant, Reminder, defaults_for
 from . import weather as farm_weather
+
+
+def _json_for_script(value):
+    """Serialize JSON for a <script> block without allowing tag breakouts."""
+    return (json.dumps(value)
+            .replace("<", "\\u003c")
+            .replace(">", "\\u003e")
+            .replace("&", "\\u0026"))
 
 
 # ---------- scoping helpers (same pattern as apps.scoping) ----------
@@ -205,16 +215,10 @@ def plant_list_page(request):
             "cells": [[p.pos_x, p.pos_y, p.name] for p in area.plants.all()
                       if 0 <= p.pos_x < area.cols and 0 <= p.pos_y < area.rows],
         }
-    # Escape for inline <script> context: json.dumps alone does not
-    # escape "<", so a plant name like "</script>" would break out
-    # of the script block (stored XSS).
-    area_map_json = (json.dumps(area_map)
-                     .replace("<", "\\u003c")
-                     .replace(">", "\\u003e")
-                     .replace("&", "\\u0026"))
     return render(request, "farm/plants.html", {
         "plants": plants, "query": query, "areas": areas,
-        "area_map_json": area_map_json,
+        "area_map_json": _json_for_script(area_map),
+        "crop_guide_json": _json_for_script(crop_guide_payload()),
     })
 
 
@@ -321,6 +325,7 @@ def plant_detail_page(request, pk):
         "reminders": reminders,
         "logs": logs,
         "checks": checks,
+        "harvest_guide": defaults_for(plant.name, plant.start_method or None),
     })
 
 
@@ -329,6 +334,9 @@ def _parse_plant_form(request, plant):
     variety = request.POST.get("variety", "").strip()
     planting_date = request.POST.get("planting_date", "").strip()
     area_id = request.POST.get("area", "").strip()
+    start_method = request.POST.get("start_method", "").strip()
+    if start_method not in ("direct", "transplant"):
+        start_method = ""
     if not name:
         return None, "Plant name is required."
     plant.name = name
@@ -338,8 +346,10 @@ def _parse_plant_form(request, plant):
             plant.planting_date = date.fromisoformat(planting_date)
     except ValueError:
         return None, "Invalid planting date."
-    # Auto-fill tailored defaults when user leaves them blank.
-    d = defaults_for(name)
+    # Auto-fill crop-aware defaults when user leaves them blank. The start
+    # method matters because transplanted crops count from transplanting.
+    d = defaults_for(name, start_method or None)
+    plant.start_method = start_method or d["start_method"]
     try:
         plant.days_to_harvest = int(request.POST.get("days_to_harvest") or d["days_to_harvest"])
         plant.water_every_days = int(request.POST.get("water_every_days") or d["water_every_days"])
@@ -368,6 +378,7 @@ def plant_get_ajax(request, pk):
     return JsonResponse({
         "id": plant.id, "name": plant.name, "variety": plant.variety,
         "planting_date": plant.planting_date.isoformat(),
+        "start_method": plant.start_method,
         "days_to_harvest": plant.days_to_harvest,
         "water_every_days": plant.water_every_days,
         "fertilize_every_days": plant.fertilize_every_days,
@@ -402,7 +413,6 @@ def plant_save_ajax(request):
     if error:
         return JsonResponse({"error": error}, status=400)
     if not plant.pk:
-        plant.apply_vegetable_defaults()
         plant.user = request.user
     plant.save()
     # Auto-generate tailored reminders on creation.
@@ -710,37 +720,46 @@ def weather_refresh(request):
     return redirect("farm:dashboard")
 
 
-@login_required(login_url="login")
-@require_POST
-def ai_advice_ajax(request, pk):
-    """Ask the configured AI backend about plant pk; save the answer to care history."""
+def _configured_ai():
+    """Return (backend label, gemini module, ask callable, error response)."""
     from django.conf import settings as dj_settings
 
     from . import ai_advice as gemini
     from . import ai_openrouter as orouter
 
-    plant = _plant(request.user, pk)
-    use_openrouter = getattr(dj_settings, "AI_PROVIDER", "gemini") == "openrouter"
-    if use_openrouter:
+    if getattr(dj_settings, "AI_PROVIDER", "gemini") == "openrouter":
         if not orouter.is_configured():
-            return JsonResponse(
-                {"error": "Set OPENROUTER_API_KEY to enable AI advice. Get a key at https://openrouter.ai/keys."},
+            return None, gemini, None, JsonResponse(
+                {"error": "Set OPENROUTER_API_KEY to enable AI advice and harvest checks. Get a key at https://openrouter.ai/keys."},
                 status=400,
             )
-        backend_name, ask = f"OpenRouter ({orouter.model_name()})", orouter.ask_openrouter
-    else:
-        if not gemini.is_configured():
-            return JsonResponse(
-                {"error": "Set GEMINI_API_KEY to enable AI advice. Get a free key at https://aistudio.google.com."},
-                status=400,
-            )
-        backend_name, ask = f"Gemini ({gemini.model_name()})", None
+        return (
+            f"OpenRouter ({orouter.model_name()})",
+            gemini,
+            orouter.ask_openrouter,
+            None,
+        )
+
+    if not gemini.is_configured():
+        return None, gemini, None, JsonResponse(
+            {"error": "Set GEMINI_API_KEY to enable AI advice and harvest checks. Get a free key at https://aistudio.google.com."},
+            status=400,
+        )
+    return f"Gemini ({gemini.model_name()})", gemini, gemini.ask_gemini, None
+
+
+@login_required(login_url="login")
+@require_POST
+def ai_advice_ajax(request, pk):
+    """Ask the configured AI backend about plant pk; save the answer to care history."""
+    plant = _plant(request.user, pk)
+    backend_name, gemini, ask, error = _configured_ai()
+    if error:
+        return error
+
     logs = list(plant.care_logs.order_by("-date")[:5])
     checks = list(plant.daily_checks.order_by("-date")[:5])
-    if use_openrouter:
-        result = ask(gemini.build_prompt(plant, logs, checks, farm_weather.weather_status()))
-    else:
-        result = gemini.plant_advice(plant, logs, checks, farm_weather.weather_status())
+    result = ask(gemini.build_prompt(plant, logs, checks, farm_weather.weather_status()))
     if not result["ok"]:
         return JsonResponse({"error": result["error"]}, status=502)
     log = CareLog.objects.create(
@@ -748,6 +767,77 @@ def ai_advice_ajax(request, pk):
         category="note", description=f"AI advice [{backend_name}]: {result['text']}",
     )
     return JsonResponse({"status": "success", "id": log.id, "advice": result["text"]})
+
+
+def _harvest_check_response(plants):
+    """Ask AI to audit harvest settings and return per-plant suggestions."""
+    plants = list(plants)
+    if not plants:
+        return JsonResponse({"error": "No plants to check. Add a plant first."}, status=400)
+
+    backend_name, gemini, ask, error = _configured_ai()
+    if error:
+        return error
+
+    result = ask(gemini.build_harvest_audit_prompt(plants))
+    if not result.get("ok"):
+        return JsonResponse(
+            {"error": result.get("error", "The AI harvest check failed.")},
+            status=502,
+        )
+
+    parsed = gemini.parse_harvest_audit(result.get("text", ""))
+    parsed_by_id = {}
+    for item in parsed:
+        parsed_by_id.setdefault(item["id"], item)
+
+    rows = []
+    for plant in plants:
+        item = parsed_by_id.get(plant.id)
+        if not item:
+            continue
+        guide = defaults_for(plant.name, plant.start_method or None)
+        rows.append({
+            "id": plant.id,
+            "name": plant.name,
+            "variety": plant.variety,
+            "url": reverse("farm:plant_detail", args=[plant.id]),
+            "current_days": plant.days_to_harvest,
+            "current_basis": plant.harvest_basis,
+            "start_method": plant.start_method or guide["start_method"],
+            "expected_harvest_date": plant.expected_harvest_date.isoformat(),
+            "catalog_min": guide["days_min"],
+            "catalog_max": guide["days_max"],
+            "catalog_suggested": guide["days_to_harvest"],
+            "verdict": item["verdict"],
+            "suggested_days": item["suggested_days"],
+            "reason": item["reason"],
+        })
+
+    return JsonResponse({
+        "status": "success",
+        "backend": backend_name,
+        "checked": len(plants),
+        "rows": rows,
+        "parsed": bool(parsed),
+        "raw": result.get("text", ""),
+    })
+
+
+@login_required(login_url="login")
+@require_POST
+def harvest_check_ajax(request, pk):
+    """Ask AI to check one plant's harvest estimate."""
+    plant = _plant(request.user, pk)
+    return _harvest_check_response([plant])
+
+
+@login_required(login_url="login")
+@require_POST
+def harvest_check_all_ajax(request):
+    """Ask AI to check every plant visible to the signed-in user."""
+    plants = _plants(request.user).order_by("name")
+    return _harvest_check_response(plants)
 
 
 # ---------- care history ----------

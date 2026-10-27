@@ -3,7 +3,7 @@
 <div class="page-header d-print-none">
   <div class="row align-items-center">
     <div class="col"><div class="page-pretitle">Mosquera Farm Log</div><h2 class="page-title">Plants — Planting & Harvest Tracking</h2></div>
-    <div class="col-auto"><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#plantModal" data-mode="create"><i class="fas fa-plus me-2"></i>Add Plant</button></div>
+    <div class="col-auto d-flex gap-2"><button type="button" class="btn btn-outline-purple" id="harvestAuditBtn" title="Ask AI to check every plant's harvest estimate">🤖 Check all harvests</button><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#plantModal" data-mode="create"><i class="fas fa-plus me-2"></i>Add Plant</button></div>
   </div>
 </div>
 <br>
@@ -22,7 +22,7 @@
 <td><button class="btn btn-sm" data-bs-toggle="modal" data-bs-target="#plantModal" data-mode="edit" data-id="{{ p.id }}">Edit</button>
 <a class="btn btn-sm btn-outline-primary" href="{% url 'farm:plant_detail' p.id %}">Open</a></td>
 </tr>
-{% empty %}<tr><td colspan="{% if user.is_superuser %}7{% else %}6{% endif %}" class="text-center text-muted py-4">No plants yet. Add your first vegetable.</td></tr>{% endfor %}
+{% empty %}<tr><td colspan="{% if user.is_superuser %}7{% else %}6{% endif %}" class="text-center text-muted py-4">No plants yet. Add your first crop.</td></tr>{% endfor %}
 </tbody></table></div></div>
 
 <div class="modal modal-blur fade" id="plantModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
@@ -30,23 +30,34 @@
 <form id="plantForm">{% csrf_token %}<input type="hidden" name="id" id="plant_id">
 <div class="modal-body"><div id="plantErr" class="alert alert-danger d-none"></div>
 <div class="row g-2">
-<div class="col-6"><label class="form-label">Vegetable *</label><input name="name" id="plant_name" class="form-control" placeholder="Lettuce / Tomato..." required></div>
+<div class="col-6"><label class="form-label">Crop *</label><input name="name" id="plant_name" class="form-control" placeholder="Lettuce / Tomato / Rambutan..." required></div>
 <div class="col-6"><label class="form-label">Variety</label><input name="variety" id="plant_variety" class="form-control"></div>
-<div class="col-6"><label class="form-label">Planting date</label><input type="date" name="planting_date" id="plant_date" class="form-control"></div>
-<div class="col-6"><label class="form-label">Status</label><select name="status" id="plant_status" class="form-select"><option value="seed">Seed</option><option value="seedling" selected>Seedling</option><option value="growing">Growing</option><option value="flowering">Flowering</option><option value="ready">Ready to harvest</option><option value="harvested">Harvested</option><option value="dead">Dead</option></select></div>
-<div class="col-4"><label class="form-label">Days to harvest</label><input type="number" name="days_to_harvest" id="plant_dth" class="form-control" min="1" placeholder="auto"></div>
+<div class="col-4"><label class="form-label" id="plantDateLabel">Planting date</label><input type="date" name="planting_date" id="plant_date" class="form-control"></div>
+<div class="col-4"><label class="form-label">Start method</label><select name="start_method" id="plant_start_method" class="form-select"><option value="">Auto (recommended)</option><option value="direct">Direct seeded / seed-grown</option><option value="transplant">Transplanted / grafted</option></select></div>
+<div class="col-4"><label class="form-label">Status</label><select name="status" id="plant_status" class="form-select"><option value="seed">Seed</option><option value="seedling" selected>Seedling</option><option value="growing">Growing</option><option value="flowering">Flowering</option><option value="ready">Ready to harvest</option><option value="harvested">Harvested</option><option value="dead">Dead</option></select></div>
+<div class="col-4"><label class="form-label">Days to harvest</label><input type="number" name="days_to_harvest" id="plant_dth" class="form-control" min="1" placeholder="auto"><div id="plant_dth_hint" class="form-text text-muted"></div></div>
 <div class="col-4"><label class="form-label">Water every (days)</label><input type="number" name="water_every_days" id="plant_water" class="form-control" min="1" placeholder="auto"></div>
 <div class="col-4"><label class="form-label">Fertilize every (days)</label><input type="number" name="fertilize_every_days" id="plant_fert" class="form-control" min="1" placeholder="auto"></div>
+<div class="col-12"><div id="harvestHint" class="form-text text-muted">Enter a crop name to see its typical harvest window.</div></div>
 <div class="col-12"><label class="form-label">Plot <span class="text-muted" id="plotHint">— pick a plot, then tap a cell</span></label><select name="area" id="plant_area" class="form-select"><option value="">— unplaced —</option>{% for a in areas %}<option value="{{ a.id }}" data-rows="{{ a.rows }}" data-cols="{{ a.cols }}">{{ a.name }} ({{ a.rows }}×{{ a.cols }} {{ a.get_kind_display|lower }})</option>{% endfor %}</select></div>
 <div class="col-12 d-none" id="cellPickerWrap"><div id="cellPicker" class="d-grid gap-1"></div></div>
 <div class="col-4"><label class="form-label">Cell X <small class="text-muted">(col)</small></label><input type="number" name="pos_x" id="plant_x" class="form-control" value="0" min="0"></div>
 <div class="col-4"><label class="form-label">Cell Y <small class="text-muted">(row)</small></label><input type="number" name="pos_y" id="plant_y" class="form-control" value="0" min="0"></div>
 <div class="col-4"><label class="form-label">Qty</label><input type="number" name="quantity" id="plant_qty" class="form-control" value="1" min="1"></div>
 <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" id="plant_notes" class="form-control" rows="2"></textarea></div>
-<p class="text-muted small mb-0">Tip: leave harvest/water/fertilize blank to auto-fill tailored defaults per vegetable (e.g. lettuce vs tomato).</p>
+<p class="text-muted small mb-0">Tip: harvest days are counted from sowing for direct-seeded crops, or from the transplant date for transplanted crops. Tree crops can take years; the form shows a year estimate for long values. Leave harvest/water/fertilize blank to use the suggested crop defaults; you can always override them for your variety.</p>
 </div></div>
 <div class="modal-footer"><button class="btn btn-ghost-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save</button></div>
 </form></div></div></div>
+
+<div class="modal modal-blur fade" id="harvestAuditModal" tabindex="-1"><div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
+<div class="modal-header"><h5 class="modal-title">🤖 AI harvest audit</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+<div class="modal-body" id="harvestAuditBody">
+<p class="text-muted mb-2">Checks every plant against the crop maturity catalog and the current harvest settings.</p>
+<p class="text-muted small mb-0">Plant names, varieties, dates, and harvest settings are sent to the configured AI provider. Results are suggestions only; nothing is changed automatically.</p>
+</div>
+<div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button><button type="button" class="btn btn-purple" id="harvestAuditRerun">Run again</button></div>
+</div></div></div>
 {% endblock %}
 {% block extra_js %}
 <script>
@@ -54,7 +65,80 @@
   const modal=document.getElementById('plantModal'), form=document.getElementById('plantForm'), err=document.getElementById('plantErr');
   const areaSel=document.getElementById('plant_area'), xInput=document.getElementById('plant_x'), yInput=document.getElementById('plant_y');
   const picker=document.getElementById('cellPicker'), pickerWrap=document.getElementById('cellPickerWrap'), hint=document.getElementById('plotHint');
+  const nameInput=document.getElementById('plant_name'), startSel=document.getElementById('plant_start_method');
+  const daysInput=document.getElementById('plant_dth'), daysPreview=document.getElementById('plant_dth_hint'), harvestHint=document.getElementById('harvestHint');
+  const dateLabel=document.getElementById('plantDateLabel');
   const AREA_MAP={{ area_map_json|safe }};
+  const CROP_GUIDE={{ crop_guide_json|safe }};
+  let lastSuggestion=null;
+
+  function normalizeName(value){
+    return (value||'').toLowerCase().trim().replace(/[^a-z0-9]+/g,' ').trim();
+  }
+  function cropProfile(name){
+    const normalized=normalizeName(name);
+    const key=Object.prototype.hasOwnProperty.call(CROP_GUIDE.aliases,normalized)?CROP_GUIDE.aliases[normalized]:null;
+    return key?CROP_GUIDE.crops[key]:null;
+  }
+  function formatDays(value){
+    const n=Number(value);
+    if(!Number.isFinite(n)||n<=0){return '—';}
+    const label=n.toLocaleString('en-US')+' day'+(n===1?'':'s');
+    return n>=365?label+' (~'+(n/365).toFixed(1)+' years)':label;
+  }
+  function formatDaysRange(min,max){
+    if(Number(min)>=365||Number(max)>=365){return formatDays(min)+' – '+formatDays(max);}
+    return min+'–'+max+' days';
+  }
+  function renderDaysPreview(){
+    const n=Number(daysInput.value);
+    daysPreview.textContent=n>=365?'≈ '+formatDays(n):'';
+  }
+  function currentSuggestion(){
+    const crop=cropProfile(nameInput.value);
+    const requested=startSel.value;
+    if(!crop){
+      const method=requested==='transplant'?'transplant':'direct';
+      const fallback=method==='transplant'?{days:50,min:45,max:60}:{days:60,min:50,max:70};
+      return {known:false,method:method,days:fallback.days,min:fallback.min,max:fallback.max,
+              label:nameInput.value.trim()||'This crop'};
+    }
+    const method=requested||crop.default_method;
+    const bounds=crop.ranges[method]||crop.ranges[crop.default_method];
+    return {known:true,method:method,days:crop.days[method],min:bounds[0],max:bounds[1],
+            label:crop.label,note:crop.note};
+  }
+  function renderHarvestHint(options){
+    options=options||{};
+    const s=currentSuggestion();
+    const typed=nameInput.value.trim();
+    if(!typed){
+      if(options.autoFill!==false&&lastSuggestion!==null&&daysInput.value===String(lastSuggestion)){
+        daysInput.value='';
+      }
+      dateLabel.textContent=startSel.value==='transplant'?'Transplant date':startSel.value==='direct'?'Sowing date':'Planting date';
+      harvestHint.textContent='Enter a crop name to see its typical harvest window.';
+      lastSuggestion=null;
+      renderDaysPreview();
+      return;
+    }
+    dateLabel.textContent=s.method==='transplant'?'Transplant date':'Sowing date';
+    const basis=s.method==='transplant'?'from transplant':'from sowing';
+    let message;
+    if(s.known){
+      message='Typical for '+s.label+': '+formatDaysRange(s.min,s.max)+' '+basis+'. Suggested: '+formatDays(s.days)+'.';
+      if(s.note){message+=' '+s.note;}
+    }else{
+      message='No crop-specific estimate for "'+typed+'". Using '+formatDays(s.days)+' as a fallback; adjust as needed.';
+    }
+    harvestHint.textContent=message;
+    const isAuto=options.autoFill!==false&&(daysInput.value===''||(lastSuggestion!==null&&daysInput.value===String(lastSuggestion)));
+    if(isAuto){
+      daysInput.value=s.days;
+    }
+    lastSuggestion=s.days;
+    renderDaysPreview();
+  }
   function renderPicker(){
     const id=areaSel.value;
     picker.innerHTML='';
@@ -80,9 +164,16 @@
   areaSel.addEventListener('change',renderPicker);
   xInput.addEventListener('input',renderPicker);
   yInput.addEventListener('input',renderPicker);
+  nameInput.addEventListener('input',()=>renderHarvestHint());
+  startSel.addEventListener('change',()=>renderHarvestHint());
+  daysInput.addEventListener('input',()=>{lastSuggestion=null;renderDaysPreview();});
   modal.addEventListener('show.bs.modal', e=>{
     const b=e.relatedTarget; form.reset(); err.classList.add('d-none');
+    lastSuggestion=null;
     document.getElementById('plantModalTitle').textContent='Add Plant';
+    dateLabel.textContent='Planting date';
+    harvestHint.textContent='Enter a crop name to see its typical harvest window.';
+    renderDaysPreview();
     renderPicker();
     if(b&&b.getAttribute('data-mode')==='edit'){
       document.getElementById('plantModalTitle').textContent='Edit Plant';
@@ -90,11 +181,17 @@
         .then(r=>r.json()).then(d=>{
           document.getElementById('plant_id').value=d.id; document.getElementById('plant_name').value=d.name;
           document.getElementById('plant_variety').value=d.variety; document.getElementById('plant_date').value=d.planting_date;
+          document.getElementById('plant_start_method').value=d.start_method||'';
           document.getElementById('plant_status').value=d.status; document.getElementById('plant_dth').value=d.days_to_harvest;
           document.getElementById('plant_water').value=d.water_every_days; document.getElementById('plant_fert').value=d.fertilize_every_days;
           document.getElementById('plant_area').value=d.area||''; document.getElementById('plant_x').value=d.pos_x;
           document.getElementById('plant_y').value=d.pos_y; document.getElementById('plant_qty').value=d.quantity;
           document.getElementById('plant_notes').value=d.notes;
+          const guide=cropProfile(d.name);
+          const method=d.start_method||(guide?guide.default_method:'direct');
+          const suggested=guide?guide.days[method]:(method==='transplant'?50:60);
+          lastSuggestion=Number(d.days_to_harvest)===suggested?suggested:null;
+          renderHarvestHint({autoFill:false});
           renderPicker();
         });
     }
@@ -106,6 +203,169 @@
   });
   if(new URLSearchParams(window.location.search).get('add')==='1'){
     bootstrap.Modal.getOrCreateInstance(modal).show();
+  }
+
+  const auditModalEl=document.getElementById('harvestAuditModal');
+  const auditBody=document.getElementById('harvestAuditBody');
+  const auditBtn=document.getElementById('harvestAuditBtn');
+  const auditRerun=document.getElementById('harvestAuditRerun');
+  let auditRunning=false;
+
+  function auditMessage(text,className){
+    auditBody.replaceChildren();
+    const message=document.createElement('div');
+    message.className=className||'text-muted';
+    message.textContent=text;
+    auditBody.appendChild(message);
+  }
+  function verdictLabel(verdict){
+    return {ok:'Looks realistic',too_early:'Possibly too early',too_late:'Possibly too late',unclear:'Needs review'}[verdict]||verdict;
+  }
+  function verdictClass(verdict){
+    return {ok:'bg-success-lt',too_early:'bg-warning-lt',too_late:'bg-danger-lt',unclear:'bg-secondary-lt'}[verdict]||'bg-secondary-lt';
+  }
+  function addCell(tr,text,className){
+    const cell=document.createElement('td');
+    if(className){cell.className=className;}
+    cell.textContent=text==null||text===''?'—':text;
+    tr.appendChild(cell);
+    return cell;
+  }
+  function renderAudit(data){
+    auditBody.replaceChildren();
+    if(!Array.isArray(data.rows)||data.rows.length===0){
+      const note=document.createElement('p');
+      note.className='text-muted';
+      note.textContent='AI returned an unstructured answer. Review it below:';
+      auditBody.appendChild(note);
+      const pre=document.createElement('pre');
+      pre.style.whiteSpace='pre-wrap';
+      pre.textContent=data.raw||'No answer.';
+      auditBody.appendChild(pre);
+      return;
+    }
+
+    const okCount=data.rows.filter(row=>row.verdict==='ok').length;
+    const reviewCount=data.rows.length-okCount;
+    const summary=document.createElement('p');
+    summary.className='mb-2';
+    summary.textContent='Checked '+data.checked+' plant(s) with '+(data.backend||'AI')+'. '+okCount+' look realistic; '+reviewCount+' need review.';
+    auditBody.appendChild(summary);
+
+    if(data.rows.length<data.checked){
+      const missing=document.createElement('p');
+      missing.className='text-muted small';
+      missing.textContent='AI returned details for '+data.rows.length+' of '+data.checked+' plants.';
+      auditBody.appendChild(missing);
+    }
+
+    const wrap=document.createElement('div');
+    wrap.className='table-responsive';
+    const table=document.createElement('table');
+    table.className='table table-sm table-vcenter card-table';
+    const thead=document.createElement('thead');
+    const headRow=document.createElement('tr');
+    ['Plant','Current estimate','AI verdict','Suggested','Reason'].forEach(label=>{
+      const th=document.createElement('th');
+      th.textContent=label;
+      headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody=document.createElement('tbody');
+    data.rows.forEach(row=>{
+      const tr=document.createElement('tr');
+
+      const plantCell=document.createElement('td');
+      const link=document.createElement('a');
+      link.href=row.url||'#';
+      link.textContent=row.name;
+      plantCell.appendChild(link);
+      if(row.variety){
+        const variety=document.createElement('span');
+        variety.className='text-muted';
+        variety.textContent=' '+row.variety;
+        plantCell.appendChild(variety);
+      }
+      tr.appendChild(plantCell);
+
+      const currentCell=document.createElement('td');
+      currentCell.textContent=formatDays(row.current_days)+' '+row.current_basis;
+      const eta=document.createElement('div');
+      eta.className='text-muted small';
+      eta.textContent='ETA '+row.expected_harvest_date;
+      currentCell.appendChild(eta);
+      tr.appendChild(currentCell);
+
+      const verdictCell=document.createElement('td');
+      const badge=document.createElement('span');
+      badge.className='badge '+verdictClass(row.verdict);
+      badge.textContent=verdictLabel(row.verdict);
+      verdictCell.appendChild(badge);
+      tr.appendChild(verdictCell);
+
+      const suggestedCell=document.createElement('td');
+      if(row.suggested_days&&Number(row.suggested_days)!==Number(row.current_days)){
+        suggestedCell.textContent=formatDays(row.suggested_days);
+      }else if(row.suggested_days){
+        suggestedCell.textContent='No change';
+      }else{
+        suggestedCell.textContent='—';
+      }
+      tr.appendChild(suggestedCell);
+
+      addCell(tr,row.reason,'text-muted small');
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    auditBody.appendChild(wrap);
+
+    const footnote=document.createElement('p');
+    footnote.className='text-muted small mb-0';
+    footnote.textContent='Suggestions are advisory. Open a plant and edit its days-to-harvest value to apply a change.';
+    auditBody.appendChild(footnote);
+  }
+  async function runHarvestAudit(){
+    if(auditRunning){return;}
+    auditRunning=true;
+    const original=auditBtn.textContent;
+    auditBtn.disabled=true;
+    auditBtn.textContent='Checking…';
+    auditRerun.disabled=true;
+    auditMessage('Asking AI to check every plant…');
+    try{
+      const response=await fetch('{% url "farm:harvest_check_all_ajax" %}',{
+        method:'POST',
+        headers:{'X-CSRFToken':form.querySelector('[name=csrfmiddlewaretoken]').value}
+      });
+      let data;
+      try{
+        data=await response.json();
+      }catch(error){
+        throw new Error('The server returned an invalid response.');
+      }
+      if(!response.ok){
+        auditMessage(data.error||'AI harvest audit failed.','alert alert-danger');
+        return;
+      }
+      renderAudit(data);
+    }catch(error){
+      auditMessage('AI harvest audit failed: '+error.message,'alert alert-danger');
+    }finally{
+      auditRunning=false;
+      auditBtn.disabled=false;
+      auditBtn.textContent=original;
+      auditRerun.disabled=false;
+    }
+  }
+  if(auditBtn&&auditModalEl){
+    auditBtn.addEventListener('click',()=>{
+      bootstrap.Modal.getOrCreateInstance(auditModalEl).show();
+      runHarvestAudit();
+    });
+    auditRerun.addEventListener('click',runHarvestAudit);
   }
 })();
 </script>

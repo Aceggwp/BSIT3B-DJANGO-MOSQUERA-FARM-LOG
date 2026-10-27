@@ -39,6 +39,7 @@ erDiagram
         varchar name
         varchar variety
         date planting_date
+        varchar start_method
         int days_to_harvest
         int quantity
         varchar status
@@ -121,10 +122,11 @@ Relationship rules:
 | `id` | BIGINT | NO | AUTO_INCREMENT | Primary key |
 | `user_id` | INT | NO | — | FK → `auth_user(id)`, CASCADE |
 | `area_id` | BIGINT | YES | NULL | FK → `farm_gardenarea(id)`, SET NULL |
-| `name` | VARCHAR(120) | NO | — | Vegetable name, e.g. "Lettuce" |
+| `name` | VARCHAR(120) | NO | — | Crop name, e.g. "Lettuce" or "Rambutan" |
 | `variety` | VARCHAR(120) | YES | NULL | Optional cultivar |
-| `planting_date` | DATE | NO | `CURRENT_DATE` | |
-| `days_to_harvest` | INT UNSIGNED | NO | 60 | Auto-filled per vegetable (lettuce 45, tomato 70, …) |
+| `planting_date` | DATE | NO | `CURRENT_DATE` | Sowing date for direct-seeded/seed-grown crops; transplant date for transplanted/grafted crops |
+| `start_method` | VARCHAR(20) | NO | `''` | `direct` or `transplant`; blank means not recorded |
+| `days_to_harvest` | INT UNSIGNED | NO | 60 | Auto-filled from the crop/method catalog (e.g. lettuce 45 from sowing, tomato 75 from transplant, rambutan 1,095 from a grafted transplant) |
 | `quantity` | INT UNSIGNED | NO | 1 | Number of plants/seeds |
 | `status` | VARCHAR(20) | NO | `seedling` | `seed`, `seedling`, `growing`, `flowering`, `ready`, `harvested`, `dead` |
 | `water_every_days` | INT UNSIGNED | NO | 2 | Watering interval (drives reminders) |
@@ -136,7 +138,8 @@ Relationship rules:
 | `updated_at` | DATETIME(6) | NO | CURRENT_TIMESTAMP(6) ON UPDATE | |
 
 - **Computed (not stored):** `expected_harvest_date = planting_date + days_to_harvest`;
-  `days_until_harvest`; `is_ready`.
+  `days_until_harvest`; `is_ready`. `start_method` determines whether the
+  planting date is the sowing date or the transplant date.
 - **Index:** (`user_id`, `status`), (`area_id`).
 
 ### `farm_reminder` — automated care alerts (water / fertilize / harvest / custom)
@@ -227,10 +230,13 @@ Relationship rules:
    history); plant → reminders/logs/checks use `CASCADE` (no orphans).
 4. **Weather-adaptive reminders:** `weather_paused` + `postponed_from`
    keep the original schedule while heavy rain is forecast.
-5. **Seed data defaults:** `days_to_harvest`, `water_every_days`, and
-   `fertilize_every_days` are pre-filled per vegetable
-   (`defaults_for()` in `apps/farm/models.py`) so reminders feel
-   tailored without extra configuration.
+5. **Crop-aware defaults:** `days_to_harvest`, `water_every_days`, and
+   `fertilize_every_days` are pre-filled from the crop catalog
+   (`defaults_for()` in `apps/farm/crops.py`). The catalog accepts common
+   names/plurals and local Philippine aliases, and provides separate maturity
+   ranges for direct-seeded and transplanted/grafted crops, so the estimate
+   follows how the plant was started. Perennial fruit crops may use multi-year
+   day counts; the UI formats values of 365 days or more as days plus years.
 6. **Timestamps:** `created_at` on all tables (`auto_now_add`);
    `updated_at` on mutable rows (`auto_now`).
 

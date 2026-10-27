@@ -22,7 +22,37 @@ class FarmModelTests(TestCase):
 
     def test_vegetable_defaults_tailored(self):
         self.assertEqual(defaults_for("lettuce")["water_every_days"], 1)
-        self.assertEqual(defaults_for("tomato")["days_to_harvest"], 70)
+        self.assertEqual(defaults_for("tomato")["days_to_harvest"], 75)
+        self.assertEqual(defaults_for("tomato", "direct")["days_to_harvest"], 100)
+        self.assertEqual(defaults_for("tomato", "transplant")["days_to_harvest"], 75)
+        self.assertEqual(defaults_for("Carrots")["days_to_harvest"], 70)
+        self.assertEqual(defaults_for("Peppers")["days_to_harvest"], 75)
+        self.assertEqual(defaults_for("Cucumbers")["days_to_harvest"], 55)
+        self.assertEqual(defaults_for("Tomatoes")["days_to_harvest"], 75)
+        self.assertEqual(defaults_for("Pechay")["days_to_harvest"], 35)
+        self.assertTrue(defaults_for("Rambutan")["known"])
+        self.assertEqual(defaults_for("Rambutan")["days_to_harvest"], 1095)
+
+    def test_apply_defaults_sets_start_method(self):
+        plant = Plant(user=self.user, name="Tomato")
+        plant.apply_vegetable_defaults()
+        self.assertEqual(plant.days_to_harvest, 75)
+        self.assertEqual(plant.start_method, "transplant")
+
+        direct = Plant(user=self.user, name="Tomato", start_method="direct")
+        direct.apply_vegetable_defaults()
+        self.assertEqual(direct.days_to_harvest, 100)
+        self.assertEqual(direct.start_method, "direct")
+
+        tree = Plant(user=self.user, name="Rambutan")
+        tree.apply_vegetable_defaults()
+        self.assertEqual(tree.days_to_harvest, 1095)
+        self.assertEqual(tree.start_method, "transplant")
+
+        seed_tree = Plant(user=self.user, name="Rambutan", start_method="direct")
+        seed_tree.apply_vegetable_defaults()
+        self.assertEqual(seed_tree.days_to_harvest, 2190)
+        self.assertEqual(seed_tree.start_method, "direct")
 
     def test_reminder_status_badges(self):
         plant = Plant.objects.create(user=self.user, name="Lettuce", planting_date=date.today())
@@ -63,6 +93,101 @@ class FarmModelTests(TestCase):
         self.assertEqual(response.status_code, 404)
 
 
+class FarmCropCatalogTests(TestCase):
+    def test_rambutan_lookup_and_ranges(self):
+        from apps.farm.crops import resolve_crop
+
+        key, profile, known = resolve_crop("Rambutan")
+        self.assertTrue(known)
+        self.assertEqual(key, "rambutan")
+        self.assertEqual(profile["days"], {"direct": 2190, "transplant": 1095})
+        self.assertEqual(
+            profile["ranges"],
+            {"direct": (1825, 2555), "transplant": (730, 1460)},
+        )
+
+        default = defaults_for("Rambutan")
+        self.assertEqual(default["days_to_harvest"], 1095)
+        self.assertEqual(default["days_min"], 730)
+        self.assertEqual(default["days_max"], 1460)
+        self.assertEqual(default["start_method"], "transplant")
+
+    def test_tree_crop_local_aliases(self):
+        aliases = {
+            "rambotan": "rambutan",
+            "mangga": "mango",
+            "carabao mango": "mango",
+            "kalamansi": "calamansi",
+            "limonsito": "calamansi",
+            "kapayas": "papaya",
+            "saging": "banana",
+            "lakatan": "banana",
+            "langka": "jackfruit",
+            "abokado": "avocado",
+            "lansones": "lanzones",
+            "duryan": "durian",
+        }
+        for alias, expected in aliases.items():
+            with self.subTest(alias=alias):
+                guide = defaults_for(alias)
+                self.assertTrue(guide["known"])
+                self.assertEqual(guide["crop_key"], expected)
+
+    def test_tree_crop_start_method_overrides(self):
+        cases = [
+            ("Rambutan", "direct", 2190),
+            ("Rambutan", "transplant", 1095),
+            ("Mango", "direct", 2555),
+            ("Mango", "transplant", 1095),
+            ("Calamansi", "direct", 1460),
+            ("Calamansi", "transplant", 548),
+            ("Papaya", "direct", 300),
+            ("Papaya", "transplant", 240),
+            ("Banana", "direct", 450),
+            ("Banana", "transplant", 300),
+            ("Jackfruit", "direct", 2555),
+            ("Jackfruit", "transplant", 1460),
+            ("Avocado", "direct", 2555),
+            ("Avocado", "transplant", 1460),
+            ("Lanzones", "direct", 2920),
+            ("Lanzones", "transplant", 1825),
+            ("Durian", "direct", 3285),
+            ("Durian", "transplant", 1825),
+        ]
+        for name, method, expected_days in cases:
+            with self.subTest(name=name, method=method):
+                guide = defaults_for(name, method)
+                self.assertEqual(guide["days_to_harvest"], expected_days)
+                self.assertEqual(guide["start_method"], method)
+
+    def test_crop_guide_payload_includes_tree_crops_and_aliases(self):
+        from apps.farm.crops import crop_guide_payload
+
+        payload = crop_guide_payload()
+        self.assertIn("rambutan", payload["crops"])
+        self.assertEqual(payload["aliases"]["mangga"], "mango")
+        self.assertEqual(payload["aliases"]["kalamansi"], "calamansi")
+        self.assertEqual(
+            payload["crops"]["rambutan"]["days"],
+            {"direct": 2190, "transplant": 1095},
+        )
+        self.assertEqual(
+            payload["crops"]["rambutan"]["ranges"]["transplant"],
+            [730, 1460],
+        )
+
+    def test_duration_filters_render_years_for_large_values(self):
+        from apps.farm.templatetags.farm_filters import days_duration, days_range
+
+        self.assertEqual(days_duration(45), "45 days")
+        self.assertEqual(days_duration(1095), "1,095 days (~3.0 years)")
+        self.assertEqual(
+            days_range(1825, 2555),
+            "1,825 days (~5.0 years) – 2,555 days (~7.0 years)",
+        )
+        self.assertEqual(days_range(30, 55), "30–55 days")
+
+
 class FarmViewTests(TestCase):
     def setUp(self):
         import tempfile
@@ -86,6 +211,74 @@ class FarmViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         plant = Plant.objects.get(user=self.user, name="Lettuce")
         self.assertEqual(plant.reminders.count(), 3)
+        self.assertEqual(plant.start_method, "direct")
+        self.assertEqual(plant.days_to_harvest, 45)
+
+    def test_create_plant_uses_start_method_for_harvest_days(self):
+        response = self.client.post(reverse("farm:plant_save_ajax"), {
+            "name": "Tomato", "start_method": "transplant",
+            "planting_date": date.today().isoformat(),
+        })
+        self.assertEqual(response.status_code, 200)
+        transplanted = Plant.objects.get(user=self.user, name="Tomato")
+        self.assertEqual(transplanted.start_method, "transplant")
+        self.assertEqual(transplanted.days_to_harvest, 75)
+        self.assertEqual(
+            transplanted.expected_harvest_date,
+            date.today() + timedelta(days=75),
+        )
+
+        response = self.client.post(reverse("farm:plant_save_ajax"), {
+            "name": "Tomato", "start_method": "direct",
+            "planting_date": date.today().isoformat(),
+        })
+        self.assertEqual(response.status_code, 200)
+        direct = Plant.objects.filter(user=self.user, name="Tomato").order_by("-id").first()
+        self.assertEqual(direct.start_method, "direct")
+        self.assertEqual(direct.days_to_harvest, 100)
+
+    def test_create_tree_crop_uses_catalog_transplant_defaults(self):
+        response = self.client.post(reverse("farm:plant_save_ajax"), {
+            "name": "Rambutan", "planting_date": date.today().isoformat(),
+        })
+        self.assertEqual(response.status_code, 200)
+        plant = Plant.objects.get(user=self.user, name="Rambutan")
+        self.assertEqual(plant.start_method, "transplant")
+        self.assertEqual(plant.days_to_harvest, 1095)
+        self.assertEqual(plant.water_every_days, 3)
+        self.assertEqual(plant.fertilize_every_days, 30)
+        self.assertEqual(
+            plant.expected_harvest_date,
+            date.today() + timedelta(days=1095),
+        )
+
+    def test_tree_crop_detail_shows_year_estimates(self):
+        plant = Plant.objects.create(
+            user=self.user, name="Rambutan",
+            planting_date=date.today(),
+            start_method="transplant", days_to_harvest=1095,
+        )
+        response = self.client.get(reverse("farm:plant_detail", args=[plant.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "1,095 days (~3.0 years)")
+        self.assertContains(
+            response,
+            "730 days (~2.0 years) – 1,460 days (~4.0 years)",
+        )
+
+    def test_create_plant_keeps_explicit_harvest_override(self):
+        response = self.client.post(reverse("farm:plant_save_ajax"), {
+            "name": "Tomato", "start_method": "transplant",
+            "planting_date": date.today().isoformat(),
+            "days_to_harvest": "60", "water_every_days": "3",
+            "fertilize_every_days": "10",
+        })
+        self.assertEqual(response.status_code, 200)
+        plant = Plant.objects.get(user=self.user, name="Tomato")
+        self.assertEqual(plant.days_to_harvest, 60)
+        self.assertEqual(plant.water_every_days, 3)
+        self.assertEqual(plant.fertilize_every_days, 10)
+        self.assertEqual(plant.start_method, "transplant")
 
     def test_daily_check_marks_reminder_done(self):
         plant = Plant.objects.create(user=self.user, name="Lettuce", planting_date=date.today())
@@ -506,6 +699,7 @@ class FarmGeminiTests(TestCase):
         prompt = gemini.build_prompt(plant, [], [], {"state": "unavailable"})
         self.assertIn("Tomato", prompt)
         self.assertIn(str(plant.expected_harvest_date), prompt)
+        self.assertIn("Harvest estimate", prompt)
 
     def test_unconfigured_returns_error(self):
         from django.test import override_settings
@@ -656,6 +850,186 @@ class FarmOpenRouterTests(TestCase):
         with override_settings(AI_PROVIDER="openrouter", OPENROUTER_API_KEY=""):
             response = self.client.post(reverse("farm:ai_advice_ajax", args=[plant.id]))
         self.assertEqual(response.status_code, 400)
+
+
+class FarmHarvestAuditTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="auditor", password="secret1234")
+        self.client.force_login(self.user)
+
+    def _plant(self, **overrides):
+        values = {
+            "user": self.user,
+            "name": "Tomato",
+            "variety": "Cherry",
+            "planting_date": date.today() - timedelta(days=30),
+            "start_method": "transplant",
+            "days_to_harvest": 75,
+        }
+        values.update(overrides)
+        return Plant.objects.create(**values)
+
+    def _fake_response(self, text):
+        import json
+
+        payload = {"candidates": [{"content": {"parts": [{"text": text}]}}]}
+
+        class FakeResp:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return json.dumps(payload).encode()
+
+        return FakeResp()
+
+    def test_prompt_includes_method_and_catalog(self):
+        from apps.farm import ai_advice as gemini
+        plant = self._plant()
+        prompt = gemini.build_harvest_audit_prompt([plant])
+        self.assertIn('"start_method":"transplant"', prompt)
+        self.assertIn('"days_to_harvest":75', prompt)
+        self.assertIn('"catalog_min_days":65', prompt)
+        self.assertIn('"catalog_max_days":85', prompt)
+        self.assertIn("Cherry", prompt)
+
+    def test_prompt_includes_tree_crop_multi_year_context(self):
+        from apps.farm import ai_advice as gemini
+        plant = self._plant(
+            name="Rambutan", variety="",
+            start_method="transplant", days_to_harvest=1095,
+        )
+        prompt = gemini.build_harvest_audit_prompt([plant])
+        self.assertIn("Tree crops legitimately need multi-year estimates", prompt)
+        self.assertIn('"catalog_suggested_days":1095', prompt)
+        self.assertIn('"catalog_min_days":730', prompt)
+        self.assertIn('"catalog_max_days":1460', prompt)
+
+    def test_parser_accepts_fenced_json(self):
+        import json
+        from apps.farm import ai_advice as gemini
+        payload = [{
+            "id": 7,
+            "verdict": "too late",
+            "suggested_days": "45 days",
+            "reason": "Lettuce matures faster.",
+        }]
+        parsed = gemini.parse_harvest_audit("```json\n" + json.dumps(payload) + "\n```")
+        self.assertEqual(len(parsed), 1)
+        self.assertEqual(parsed[0]["id"], 7)
+        self.assertEqual(parsed[0]["verdict"], "too_late")
+        self.assertEqual(parsed[0]["suggested_days"], 45)
+
+    def test_single_check_returns_audit_row(self):
+        import json
+        from unittest import mock
+        from django.test import override_settings
+        plant = self._plant()
+        answer = json.dumps([{
+            "id": plant.id,
+            "verdict": "ok",
+            "suggested_days": None,
+            "reason": "Within the transplant window.",
+        }])
+        with override_settings(GEMINI_API_KEY="key"):
+            with mock.patch("urllib.request.urlopen", return_value=self._fake_response(answer)):
+                response = self.client.post(reverse("farm:harvest_check_ajax", args=[plant.id]))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["checked"], 1)
+        self.assertEqual(data["rows"][0]["current_days"], 75)
+        self.assertEqual(data["rows"][0]["current_basis"], "from transplant")
+        self.assertEqual(data["rows"][0]["catalog_min"], 65)
+        self.assertEqual(data["rows"][0]["verdict"], "ok")
+        self.assertFalse(CareLog.objects.filter(plant=plant).exists())
+
+    def test_single_check_requires_key(self):
+        from django.test import override_settings
+        plant = self._plant()
+        with override_settings(GEMINI_API_KEY=""):
+            response = self.client.post(reverse("farm:harvest_check_ajax", args=[plant.id]))
+        self.assertEqual(response.status_code, 400)
+
+    def test_single_check_scoped_to_owner(self):
+        other = get_user_model().objects.create_user(username="auditor_other", password="secret1234")
+        plant = self._plant()
+        self.client.force_login(other)
+        response = self.client.post(reverse("farm:harvest_check_ajax", args=[plant.id]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_all_check_checks_only_visible_plants(self):
+        import json
+        from unittest import mock
+        from django.test import override_settings
+        lettuce = self._plant(name="Lettuce", variety="", start_method="direct",
+                              days_to_harvest=60)
+        tomato = self._plant(name="Tomato", days_to_harvest=75)
+        other = get_user_model().objects.create_user(username="auditor_other2", password="secret1234")
+        hidden = Plant.objects.create(user=other, name="Rambutan", planting_date=date.today())
+        answer = json.dumps([
+            {"id": lettuce.id, "verdict": "too_late", "suggested_days": 45,
+             "reason": "Typical lettuce is 30-55 days."},
+            {"id": tomato.id, "verdict": "ok", "suggested_days": None,
+             "reason": "Within the transplant window."},
+            {"id": hidden.id, "verdict": "ok", "suggested_days": None,
+             "reason": "Should be ignored."},
+        ])
+        with override_settings(GEMINI_API_KEY="key"):
+            with mock.patch(
+                "apps.farm.ai_advice.ask_gemini",
+                return_value={"ok": True, "text": answer},
+            ) as ask:
+                response = self.client.post(reverse("farm:harvest_check_all_ajax"))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["checked"], 2)
+        self.assertEqual({row["id"] for row in data["rows"]}, {lettuce.id, tomato.id})
+        prompt = ask.call_args[0][0]
+        self.assertIn("Lettuce", prompt)
+        self.assertIn("Tomato", prompt)
+        self.assertNotIn("Rambutan", prompt)
+
+    def test_all_check_without_plants_returns_400(self):
+        response = self.client.post(reverse("farm:harvest_check_all_ajax"))
+        self.assertEqual(response.status_code, 400)
+
+    def test_unstructured_answer_is_returned_raw(self):
+        from unittest import mock
+        from django.test import override_settings
+        plant = self._plant()
+        with override_settings(GEMINI_API_KEY="key"):
+            with mock.patch(
+                "apps.farm.ai_advice.ask_gemini",
+                return_value={"ok": True, "text": "Looks fine to me."},
+            ):
+                response = self.client.post(reverse("farm:harvest_check_ajax", args=[plant.id]))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["rows"], [])
+        self.assertEqual(data["raw"], "Looks fine to me.")
+
+    def test_harvest_check_uses_openrouter_when_selected(self):
+        import json
+        from unittest import mock
+        from django.test import override_settings
+        plant = self._plant()
+        answer = json.dumps([{
+            "id": plant.id,
+            "verdict": "ok",
+            "suggested_days": None,
+            "reason": "Within range.",
+        }])
+        with override_settings(AI_PROVIDER="openrouter", OPENROUTER_API_KEY="key"):
+            with mock.patch(
+                "apps.farm.ai_openrouter.ask_openrouter",
+                return_value={"ok": True, "text": answer},
+            ):
+                response = self.client.post(reverse("farm:harvest_check_ajax", args=[plant.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("OpenRouter", response.json()["backend"])
 
 
 class FarmMapGridTests(TestCase):

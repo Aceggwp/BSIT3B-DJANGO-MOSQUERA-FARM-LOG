@@ -10,27 +10,7 @@ from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
 
-
-# Sensible defaults per vegetable so reminders feel "tailored"
-# (e.g. "Water the lettuce today" vs "Fertilize the tomatoes").
-VEGETABLE_DEFAULTS = {
-    "lettuce": {"days_to_harvest": 45, "water_every_days": 1, "fertilize_every_days": 14},
-    "tomato": {"days_to_harvest": 70, "water_every_days": 2, "fertilize_every_days": 14},
-    "tomatoes": {"days_to_harvest": 70, "water_every_days": 2, "fertilize_every_days": 14},
-    "carrot": {"days_to_harvest": 70, "water_every_days": 2, "fertilize_every_days": 21},
-    "cabbage": {"days_to_harvest": 80, "water_every_days": 2, "fertilize_every_days": 14},
-    "eggplant": {"days_to_harvest": 75, "water_every_days": 2, "fertilize_every_days": 14},
-    "pepper": {"days_to_harvest": 70, "water_every_days": 2, "fertilize_every_days": 14},
-    "cucumber": {"days_to_harvest": 55, "water_every_days": 1, "fertilize_every_days": 14},
-    "okra": {"days_to_harvest": 60, "water_every_days": 2, "fertilize_every_days": 21},
-    "beans": {"days_to_harvest": 55, "water_every_days": 2, "fertilize_every_days": 21},
-    "default": {"days_to_harvest": 60, "water_every_days": 2, "fertilize_every_days": 14},
-}
-
-
-def defaults_for(name: str) -> dict:
-    key = (name or "").strip().lower()
-    return VEGETABLE_DEFAULTS.get(key, VEGETABLE_DEFAULTS["default"])
+from .crops import defaults_for
 
 
 class GardenArea(models.Model):
@@ -77,6 +57,10 @@ class Plant(models.Model):
         ("harvested", "Harvested"),
         ("dead", "Dead"),
     ]
+    START_CHOICES = [
+        ("direct", "Direct seeded"),
+        ("transplant", "Transplanted"),
+    ]
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name="plants", on_delete=models.CASCADE
@@ -88,6 +72,13 @@ class Plant(models.Model):
     name = models.CharField(max_length=120, help_text="Vegetable name, e.g. Lettuce")
     variety = models.CharField(max_length=120, blank=True)
     planting_date = models.DateField(default=date.today)
+    start_method = models.CharField(
+        max_length=20, choices=START_CHOICES, blank=True, default="",
+        help_text=(
+            "How the crop was started. Direct seeded counts harvest days from "
+            "sowing; transplanted counts from the transplant date."
+        ),
+    )
     days_to_harvest = models.PositiveIntegerField(default=60, validators=[MinValueValidator(1)])
     quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="seedling")
@@ -118,8 +109,18 @@ class Plant(models.Model):
     def is_ready(self):
         return self.days_until_harvest <= 0 and self.status not in ("harvested", "dead")
 
+    @property
+    def harvest_basis(self):
+        """Human-readable basis for the days-to-harvest value."""
+        return {
+            "direct": "from sowing",
+            "transplant": "from transplant",
+        }.get(self.start_method, "from planting")
+
     def apply_vegetable_defaults(self):
-        d = defaults_for(self.name)
+        d = defaults_for(self.name, self.start_method or None)
+        if not self.start_method:
+            self.start_method = d["start_method"]
         if not self.pk:
             # Only fill unset/primitive defaults on creation.
             if self.days_to_harvest == 60:

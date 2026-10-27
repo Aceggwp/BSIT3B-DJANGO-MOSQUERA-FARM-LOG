@@ -39,6 +39,7 @@ CREATE TABLE `farm_plant` (
   `name` varchar(120) NOT NULL,
   `variety` varchar(120) DEFAULT NULL,
   `planting_date` date NOT NULL,
+  `start_method` varchar(20) NOT NULL DEFAULT '' CHECK (`start_method` IN ('', 'direct', 'transplant')),
   `days_to_harvest` int(10) UNSIGNED NOT NULL DEFAULT 60 CHECK (`days_to_harvest` >= 1),
   `quantity` int(10) UNSIGNED NOT NULL DEFAULT 1 CHECK (`quantity` >= 1),
   `status` varchar(20) NOT NULL DEFAULT 'seedling',

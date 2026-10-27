@@ -1,13 +1,18 @@
 {% extends "theme/base.html" %}
+{% load farm_filters %}
 {% block content %}
 <div class="page-header d-print-none"><div class="row align-items-center">
 <div class="col"><div class="page-pretitle">Mosquera Farm Log</div><h2 class="page-title">{{ plant.name }} {% if plant.variety %}<small class="text-muted">{{ plant.variety }}</small>{% endif %}</h2>
-<div class="text-muted">Planted {{ plant.planting_date }} · Harvest ETA {{ plant.expected_harvest_date }} ({{ plant.days_until_harvest }} days) · {{ plant.get_status_display }}</div></div>
+<div class="text-muted">Planted {{ plant.planting_date }} · Harvest ETA {{ plant.expected_harvest_date }} ({{ plant.days_until_harvest }} days) · {{ plant.get_status_display }} · {{ plant.days_to_harvest|days_duration }} {{ plant.harvest_basis }}</div>
+{% if harvest_guide.known %}<div class="text-muted small">Typical for {{ harvest_guide.crop_label }}: {{ harvest_guide.days_min|days_range:harvest_guide.days_max }} {{ harvest_guide.start_method_label }}. Varieties, weather, and care can shift this estimate.</div>
+{% elif plant.start_method %}<div class="text-muted small">No crop-specific maturity data for {{ plant.name }}; adjust the estimate for your variety.</div>
+{% else %}<div class="text-muted small">Start method not recorded. Edit the plant to record whether it was direct seeded or transplanted.</div>{% endif %}</div>
 <div class="col-auto"><a href="{% url 'farm:plant_list' %}" class="btn">Back</a>
 <form method="post" action="{% url 'farm:plant_generate_reminders' plant.id %}" style="display:inline" class="gen-form">{% csrf_token %}<button class="btn btn-outline-primary">Generate reminders</button></form>
-<form method="post" action="{% url 'farm:ai_advice_ajax' plant.id %}" style="display:inline" id="aiForm">{% csrf_token %}<button class="btn btn-purple" id="aiBtn">✨ Ask AI</button></form></div>
+<form method="post" action="{% url 'farm:ai_advice_ajax' plant.id %}" style="display:inline" id="aiForm">{% csrf_token %}<button class="btn btn-purple" id="aiBtn">✨ Ask AI</button></form>
+<button type="button" class="btn btn-outline-info" id="harvestCheckBtn" data-url="{% url 'farm:harvest_check_ajax' plant.id %}" title="Ask AI to verify this plant's harvest estimate">🤖 Check harvest</button></div>
 </div></div>
-<div id="aiResult" class="alert alert-purple-lt d-none mt-2" role="alert"></div><br>
+<div id="aiResult" class="alert alert-purple-lt d-none mt-2" role="alert" style="white-space:pre-line"></div><br>
 <div class="row row-deck row-cards">
 <div class="col-lg-4"><div class="card"><div class="card-header"><h3 class="card-title">Custom Reminders</h3></div>
 <div class="list-group list-group-flush">{% for r in reminders %}<div class="list-group-item d-flex justify-content-between"><div>{% if r.is_done %}<s>{{ r.message }}</s>{% else %}{{ r.message }}{% endif %}<br><small class="text-muted">{{ r.get_kind_display }} · {{ r.due_date }}{% if r.weather_paused %} · paused for rain{% endif %}</small><br>{% include "farm/_reminder_badges.html" with r=r %}</div>
@@ -36,10 +41,45 @@
 {% block extra_js %}
 <script>
 function postForm(form, url, ok){ form.addEventListener('submit', e=>{ e.preventDefault(); fetch(url,{method:'POST',headers:{'X-CSRFToken':form.querySelector('[name=csrfmiddlewaretoken]').value},body:new FormData(form)}).then(r=>r.json()).then(ok); }); }
+function daysLabel(value){const n=Number(value);if(!Number.isFinite(n)||n<=0){return '—';}const label=n.toLocaleString('en-US')+' day'+(n===1?'':'s');return n>=365?label+' (~'+(n/365).toFixed(1)+' years)':label;}
+function daysRange(min,max){if(Number(min)>=365||Number(max)>=365){return daysLabel(min)+' – '+daysLabel(max);}return min+'–'+max+' days';}
 postForm(document.getElementById('logForm'), '{% url "farm:carelog_save_ajax" plant.id %}', ()=>location.reload());
 postForm(document.getElementById('checkForm'), '{% url "farm:dailycheck_save_ajax" plant.id %}', ()=>location.reload());
 document.querySelectorAll('.toggle-form').forEach(f=>f.addEventListener('submit',e=>{e.preventDefault();fetch(f.action,{method:'POST',headers:{'X-CSRFToken':f.querySelector('[name=csrfmiddlewaretoken]').value}}).then(()=>location.reload());}));
 document.querySelector('.gen-form').addEventListener('submit',e=>{e.preventDefault();const f=e.target;fetch(f.action,{method:'POST',headers:{'X-CSRFToken':f.querySelector('[name=csrfmiddlewaretoken]').value}}).then(()=>location.reload());});
-document.getElementById('aiForm').addEventListener('submit',e=>{e.preventDefault();const f=e.target;const btn=document.getElementById('aiBtn');const box=document.getElementById('aiResult');btn.disabled=true;btn.textContent='Asking AI…';fetch(f.action,{method:'POST',headers:{'X-CSRFToken':f.querySelector('[name=csrfmiddlewaretoken]').value}}).then(r=>r.json()).then(d=>{box.classList.remove('d-none');if(d.advice){box.textContent=d.advice;setTimeout(()=>location.reload(),8000);}else{box.textContent=d.error||'Something went wrong.';btn.disabled=false;btn.textContent='✨ Ask AI';}});});
+document.getElementById('aiForm').addEventListener('submit',e=>{e.preventDefault();const f=e.target;const btn=document.getElementById('aiBtn');const box=document.getElementById('aiResult');btn.disabled=true;btn.textContent='Asking AI…';fetch(f.action,{method:'POST',headers:{'X-CSRFToken':f.querySelector('[name=csrfmiddlewaretoken]').value}}).then(r=>r.json()).then(d=>{box.classList.remove('d-none');if(d.advice){box.textContent=d.advice;setTimeout(()=>location.reload(),8000);}else{box.textContent=d.error||'Something went wrong.';btn.disabled=false;btn.textContent='✨ Ask AI';}}).catch(()=>{box.classList.remove('d-none');box.textContent='Something went wrong.';btn.disabled=false;btn.textContent='✨ Ask AI';});});
+const harvestBtn=document.getElementById('harvestCheckBtn');
+if(harvestBtn){
+  harvestBtn.addEventListener('click',async()=>{
+    const box=document.getElementById('aiResult');
+    const token=document.querySelector('#aiForm [name=csrfmiddlewaretoken]').value;
+    const original=harvestBtn.textContent;
+    harvestBtn.disabled=true;harvestBtn.textContent='Checking…';
+    box.classList.remove('d-none');box.textContent='Checking harvest estimate with AI…';
+    try{
+      const r=await fetch(harvestBtn.dataset.url,{method:'POST',headers:{'X-CSRFToken':token}});
+      const d=await r.json();
+      if(!r.ok){box.textContent=d.error||'AI harvest check failed.';return;}
+      const labels={ok:'Looks realistic',too_early:'Possibly too early',too_late:'Possibly too late',unclear:'Needs review'};
+      if(d.rows&&d.rows.length){
+        const row=d.rows[0];
+        const basis=row.start_method==='transplant'?'from transplant':'from sowing';
+        let text='AI harvest check ['+(d.backend||'AI')+']\n'+(labels[row.verdict]||row.verdict)+': '+daysLabel(row.current_days)+' '+row.current_basis+'.';
+        text+='\nTypical range: '+daysRange(row.catalog_min,row.catalog_max)+' '+basis+'.';
+        if(row.suggested_days&&Number(row.suggested_days)!==Number(row.current_days)){
+          text+='\nAI suggestion: '+daysLabel(row.suggested_days)+' from the recorded planting date.';
+        }
+        if(row.reason){text+='\n'+row.reason;}
+        box.textContent=text;
+      }else{
+        box.textContent=d.raw||'AI returned no structured result.';
+      }
+    }catch(err){
+      box.textContent='AI harvest check failed: '+err;
+    }finally{
+      harvestBtn.disabled=false;harvestBtn.textContent=original;
+    }
+  });
+}
 </script>
 {% endblock %}

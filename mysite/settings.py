@@ -161,7 +161,7 @@ GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
 GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-flash-latest')
 
 # Mosquera Farm Log — OpenRouter AI backend (https://openrouter.ai/keys).
-# AI_PROVIDER selects which backend the "Ask AI" button uses.
+# AI_PROVIDER selects which backend the AI advice and harvest-check buttons use.
 AI_PROVIDER = os.environ.get('AI_PROVIDER', 'gemini')
 OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY', '')
 OPENROUTER_MODEL = os.environ.get('OPENROUTER_MODEL', 'google/gemma-4-31b-it:free')
