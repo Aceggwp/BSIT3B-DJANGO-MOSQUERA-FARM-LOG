@@ -1,23 +1,176 @@
 # MOSQUERA Farm Logs
 
-Django farm management app: planting & harvest tracking, custom reminders
-(weather-adaptive via Open-Meteo), visual garden layout map with companion
-planting alerts, care history with progress photos, daily monitoring with
-quick-log shortcuts, AI advice (Gemini / OpenRouter), role-based auth
-(admin + staff), and login tracking.
+A Django farm-management web app for tracking plantings, harvests, watering,
+fertilizing, daily plant health, care history, and garden layouts. It includes
+weather-adaptive reminders, companion-planting alerts, AI care advice, and
+role-based accounts with login tracking.
 
 ## Members
 
 - Mosquera, Carl John
 - Lirazan, Adrian
-- Lucasan, Arc Xerlan 
+- Lucasan, Arc Xerlan
 
-## Initial table design
+## Features
 
-See [`docs/initial-table-design.md`](docs/initial-table-design.md)
-for the ERD, table/column specs, and constraints, or
-[`SQL/farm_schema.sql`](SQL/farm_schema.sql) for a clean
-MariaDB/MySQL DDL of the farm tables.
+### Farm management
+
+- **Planting & harvest tracking** — record vegetable name, variety, planting
+  date, quantity, status, harvest ETA, and notes.
+- **Tailored vegetable defaults** — lettuce, tomato, carrot, cabbage, eggplant,
+  pepper, cucumber, okra, and beans pre-fill harvest/water/fertilize intervals.
+- **Custom reminders** — water, fertilize, harvest, and custom alerts with due
+  dates, overdue badges, completion history, and automatic rollover for
+  recurring care.
+- **Garden areas & visual map** — define yards, raised beds, indoor pots, and
+  greenhouses as grids; place plants by cell, drag them between cells, and
+  auto-arrange unplaced plants.
+- **Companion-planting alerts** — the map flags beneficial and harmful
+  neighboring pairings (e.g. tomato + potato, basil + tomato).
+- **Care history** — growth, pest, weather, and general notes with optional
+  progress photos.
+- **Daily monitoring** — one entry per plant per day with watered/fertilized
+  toggles, health status (Poor, Fair, Good, Excellent), height, and notes.
+  Poor health automatically creates a follow-up reminder.
+- **Quick log** — one-tap watering/fertilizing for all plants (or one area),
+  plus a "Pest spotted" shortcut.
+- **Weather-adaptive reminders** — Open-Meteo forecast integration pauses
+  watering reminders when heavy rain is expected.
+- **AI advice** — per-plant advice using plant data, care logs, and recent
+  daily checks, powered by Gemini or OpenRouter.
+- **Dashboard** — plant counts, due reminders, harvest-ready plants, weather,
+  recent checks, and upcoming tasks.
+
+### Accounts & administration
+
+- **Login, logout, and public registration** — new registrations become staff
+  accounts (never superusers).
+- **Login protection** — 5 failed attempts lock sign-in for 1 minute.
+- **Login tracking** — every successful sign-in records time, IP address, and
+  user agent.
+- **Admin-only user management** — create, edit, deactivate, and delete users.
+- **Staff profiles** — `Info` records for name, age, address, and email.
+- **Role-based data isolation** — staff see only their own farm/profile data;
+  superusers can see and manage everything.
+- **Django admin** at `/admin/` for direct database administration.
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Backend | Django (see `requirements.txt`) |
+| Database (dev) | SQLite (`db.sqlite3`) |
+| Database (production DDL) | MariaDB 10.4 / MySQL 8, `utf8mb4` |
+| Frontend | Django templates, Tabler UI, Bootstrap, vanilla JavaScript |
+| Photos | Pillow, uploaded under `media/care_photos/` |
+| Weather | Open-Meteo (default, no key) or OpenWeatherMap |
+| AI | Google Gemini or OpenRouter |
+
+## Project structure
+
+```text
+manage.py
+mysite/                  # project settings and root URL configuration
+apps/
+  core/                  # login, registration, login events, home page
+  users/                 # admin-only user management
+  info/                  # staff profile records (tblinfo)
+  farm/                  # plants, reminders, care logs, map, weather, AI
+    management/commands/ # seed_farm.py, sync_reminders.py
+templates/               # auth, theme, farm, users, info, home templates
+static/                  # Tabler UI and vendored front-end libraries
+docs/
+  initial-table-design.md
+SQL/
+  farm_schema.sql        # MariaDB/MySQL DDL
+```
+
+## Database design
+
+The full ERD, column specifications, and constraints live in
+[`docs/initial-table-design.md`](docs/initial-table-design.md). A clean
+MariaDB/MySQL DDL is available in [`SQL/farm_schema.sql`](SQL/farm_schema.sql).
+For SQLite development, `python manage.py migrate` builds the same schema
+automatically.
+
+### Entities & relationships
+
+```mermaid
+erDiagram
+    auth_user ||--o{ farm_gardenarea : "owns"
+    auth_user ||--o{ farm_plant : "owns"
+    auth_user ||--o{ farm_reminder : "owns"
+    auth_user ||--o{ farm_carelog : "owns"
+    auth_user ||--o{ farm_dailycheck : "owns"
+    auth_user ||--o{ core_loginevent : "records"
+    auth_user ||--o{ tblinfo : "profile"
+
+    farm_gardenarea ||--o{ farm_plant : "contains"
+    farm_plant ||--o{ farm_reminder : "triggers"
+    farm_plant ||--o{ farm_carelog : "history"
+    farm_plant ||--o{ farm_dailycheck : "monitored by"
+```
+
+### Tables
+
+| Table | Purpose | Key fields / constraints |
+|---|---|---|
+| `auth_user` | Django account | username, email, password, is_staff, is_superuser |
+| `farm_gardenarea` | Growing spaces for the map | user, name, kind, rows, cols; unique (`user`, `name`) |
+| `farm_plant` | A planting and its schedule | user, area, name, variety, planting date, days to harvest, status, water/fertilize intervals, grid position |
+| `farm_reminder` | Care alerts | user, plant, kind (`water`, `fertilize`, `harvest`, `custom`), message, due date, completion, weather pause |
+| `farm_carelog` | Care history | user, plant, date, category (`growth`, `pest`, `weather`, `note`), description, photo |
+| `farm_dailycheck` | One monitoring entry per plant per day | user, plant, date, watered, fertilized, health, height, notes; unique (`plant`, `date`) |
+| `core_loginevent` | Sign-in audit trail | user, timestamp, IP address, user agent |
+| `tblinfo` | Staff profile | name, age (1–150), address, email, user |
+
+### Relationship rules
+
+- Every farm record belongs to exactly one `auth_user`; deleting a user
+  cascades to their data.
+- A `GardenArea` holds many plants. Deleting an area keeps the plants by
+  setting `area_id` to `NULL`, so history is not lost.
+- A `Plant` owns reminders, care logs, and daily checks; deleting a plant
+  cascades to those records.
+
+### Design notes
+
+1. **Normalization (3NF):** schedules and defaults live on the plant row;
+   `expected_harvest_date` is computed from `planting_date + days_to_harvest`,
+   never stored.
+2. **Per-user isolation:** every farm, profile, and login table carries
+   `user_id`, and queries filter by the signed-in user unless they are a
+   superuser.
+3. **Cascade policy:** area → plants uses `SET NULL`; plant → reminders, logs,
+   and checks uses `CASCADE`.
+4. **Weather-adaptive reminders:** `weather_paused` and `postponed_from` keep
+   the original watering schedule while rain is forecast.
+5. **Seed data defaults:** harvest, water, and fertilize intervals are
+   pre-filled per vegetable through `defaults_for()` in
+   `apps/farm/models.py`.
+6. **Timestamps:** `created_at` on all records; `updated_at` on mutable rows.
+
+## Roles & permissions
+
+| Role | Access |
+|---|---|
+| **Superuser / Admin** | All farm and profile records, user management, Django admin |
+| **Staff** | Own farm dashboard, plants, reminders, logs, checks, map, and own profile |
+
+Public registration always creates a **staff** account. Create an admin with
+`python manage.py createsuperuser`.
+
+## Reminder automation
+
+- Completing a **water** or **fertilize** reminder automatically schedules the
+  next occurrence using the interval on the plant.
+- **Harvest** reminders use the computed harvest date.
+- **Custom** reminders are one-time alerts.
+- When rain above the threshold is forecast, due watering reminders can be
+  paused and later resumed.
+- `python manage.py sync_reminders` backfills missing reminders and re-syncs
+  harvest dates. It is idempotent and safe to run from cron or Windows Task
+  Scheduler.
 
 ## Run locally
 
@@ -28,18 +181,53 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-Automation: completing a water/fertilize reminder auto-schedules the next
-occurrence, and plant edits sync open reminders. To backfill/ensure on a
-schedule, run `python manage.py sync_reminders` (idempotent) via cron or
-Windows Task Scheduler.
+Open <http://127.0.0.1:8000/> and sign in.
 
-Optional integrations via environment variables (no keys needed for the
-default weather provider):
+### Optional sample data
 
 ```bash
+python manage.py seed_farm --username admin
+```
+
+Creates example garden areas, plants, reminders, care logs, and daily checks
+for the given account. Use `--clear` to wipe that user's farm data first.
+
+## Environment variables
+
+No keys are required for the default weather provider. All integrations fail
+softly when unavailable.
+
+```bash
+# Weather (Open-Meteo is the default and needs no key)
+set FARM_WEATHER_PROVIDER=open-meteo
+set FARM_WEATHER_CITY=Manila, PH
 set FARM_WEATHER_LAT=14.5995
 set FARM_WEATHER_LON=120.9842
+set FARM_RAIN_SKIP_MM=5.0
+set FARM_WEATHER_CACHE_SECONDS=1800
+
+# Optional OpenWeatherMap instead of Open-Meteo
+set FARM_WEATHER_PROVIDER=openweathermap
+set OPENWEATHER_API_KEY=your_key
+
+# AI advice — choose one provider
 set GEMINI_API_KEY=your_key
 set AI_PROVIDER=gemini
-set OPENROUTER_API_KEY=your_key   # with AI_PROVIDER=openrouter
+# or
+set OPENROUTER_API_KEY=your_key
+set AI_PROVIDER=openrouter
 ```
+
+## Documentation
+
+- [Initial table design & ERD](docs/initial-table-design.md)
+- [MariaDB/MySQL schema](SQL/farm_schema.sql)
+- [Requirements](requirements.txt)
+
+## Notes
+
+- The development database is SQLite; the commented MySQL configuration in
+  `mysite/settings.py` can be enabled for XAMPP/MySQL deployments.
+- Uploaded care photos are limited to 5 MB and JPG, PNG, WEBP, or GIF.
+- The UI uses the vendored Tabler theme under `static/`; no separate
+  front-end build step is needed.
