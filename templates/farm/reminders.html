@@ -14,7 +14,7 @@
 <div class="modal-header"><h5 class="modal-title">Add Reminder</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
 <form id="remForm">{% csrf_token %}<div class="modal-body"><div class="row g-2">
 <div class="col-12"><label class="form-label">Plant</label><select name="plant" class="form-select">{% for p in plants %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select></div>
-<div class="col-6"><label class="form-label">Kind</label><select name="kind" class="form-select"><option value="water">Water</option><option value="fertilize">Fertilize</option><option value="harvest">Harvest</option><option value="custom">Custom</option></select></div>
+<div class="col-6"><label class="form-label">Kind</label><select name="kind" class="form-select"><option value="water">Water</option><option value="fertilize">Fertilize</option><option value="harvest">Harvest</option><option value="health">Health check</option><option value="custom">Custom</option></select></div>
 <div class="col-6"><label class="form-label">Due date</label><input type="date" name="due_date" class="form-control" value="{% now 'Y-m-d' %}"></div>
 <div class="col-12"><label class="form-label">Message</label><input name="message" class="form-control" placeholder="e.g. Water the lettuce today"></div>
 </div></div><div class="modal-footer"><button class="btn btn-primary w-100">Save</button></div></form></div></div></div>

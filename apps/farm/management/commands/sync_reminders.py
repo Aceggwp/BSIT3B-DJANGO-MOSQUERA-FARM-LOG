@@ -1,6 +1,6 @@
 """Keep plants and reminders in sync (idempotent — safe to schedule).
 
-Ensures every plant has open water/fertilize/harvest reminders, re-syncs
+Ensures every plant has open water/fertilize/harvest/health reminders, re-syncs
 auto harvest dates/messages to each plant's current schedule, and reports.
 
 Usage:

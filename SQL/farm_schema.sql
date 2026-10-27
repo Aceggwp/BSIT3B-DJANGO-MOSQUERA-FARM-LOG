@@ -44,6 +44,7 @@ CREATE TABLE `farm_plant` (
   `status` varchar(20) NOT NULL DEFAULT 'seedling',
   `water_every_days` int(10) UNSIGNED NOT NULL DEFAULT 2 CHECK (`water_every_days` >= 1),
   `fertilize_every_days` int(10) UNSIGNED NOT NULL DEFAULT 14 CHECK (`fertilize_every_days` >= 1),
+  `health_check_every_days` int(10) UNSIGNED NOT NULL DEFAULT 30 CHECK (`health_check_every_days` >= 1),
   `pos_x` int(10) UNSIGNED NOT NULL DEFAULT 0,
   `pos_y` int(10) UNSIGNED NOT NULL DEFAULT 0,
   `notes` longtext DEFAULT NULL,
