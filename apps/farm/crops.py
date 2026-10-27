@@ -462,6 +462,8 @@ def crop_guide_payload() -> dict:
                     for method, bounds in profile["ranges"].items()
                 },
                 "note": profile["note"],
+                "water_every_days": profile["water_every_days"],
+                "fertilize_every_days": profile["fertilize_every_days"],
             }
             for key, profile in CROP_CATALOG.items()
         },

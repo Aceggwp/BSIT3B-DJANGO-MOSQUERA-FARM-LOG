@@ -22,8 +22,8 @@ role-based accounts with login tracking.
   papaya, banana, jackfruit, avocado, lanzones, and durian), accepts
   singular/plural/local names, and adjusts the estimate for direct-seeded
   versus transplanted or grafted crops.
-- **Tailored care defaults** — water and fertilize intervals are pre-filled per
-  crop, with per-plant overrides.
+- **Tailored care defaults** — water and fertilize intervals fill in live from
+  the selected crop's catalog profile, with per-plant overrides.
 - **Custom reminders** — water, fertilize, harvest, and custom alerts with due
   dates, overdue badges, completion history, and automatic rollover for
   recurring care.

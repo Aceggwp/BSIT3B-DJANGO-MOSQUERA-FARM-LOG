@@ -36,16 +36,16 @@
 <div class="col-4"><label class="form-label">Start method</label><select name="start_method" id="plant_start_method" class="form-select"><option value="">Auto (recommended)</option><option value="direct">Direct seeded / seed-grown</option><option value="transplant">Transplanted / grafted</option></select></div>
 <div class="col-4"><label class="form-label">Status</label><select name="status" id="plant_status" class="form-select"><option value="seed">Seed</option><option value="seedling" selected>Seedling</option><option value="growing">Growing</option><option value="flowering">Flowering</option><option value="ready">Ready to harvest</option><option value="harvested">Harvested</option><option value="dead">Dead</option></select></div>
 <div class="col-4"><label class="form-label">Days to harvest</label><input type="number" name="days_to_harvest" id="plant_dth" class="form-control" min="1" placeholder="auto"><div id="plant_dth_hint" class="form-text text-muted"></div></div>
-<div class="col-4"><label class="form-label">Water every (days)</label><input type="number" name="water_every_days" id="plant_water" class="form-control" min="1" placeholder="auto"></div>
-<div class="col-4"><label class="form-label">Fertilize every (days)</label><input type="number" name="fertilize_every_days" id="plant_fert" class="form-control" min="1" placeholder="auto"></div>
-<div class="col-12"><div id="harvestHint" class="form-text text-muted">Enter a crop name to see its typical harvest window.</div></div>
+<div class="col-4"><label class="form-label">Water every (days)</label><input type="number" name="water_every_days" id="plant_water" class="form-control" min="1" placeholder="auto"><div id="plant_water_hint" class="form-text text-muted"></div></div>
+<div class="col-4"><label class="form-label">Fertilize every (days)</label><input type="number" name="fertilize_every_days" id="plant_fert" class="form-control" min="1" placeholder="auto"><div id="plant_fert_hint" class="form-text text-muted"></div></div>
+<div class="col-12"><div id="harvestHint" class="form-text text-muted">Enter a crop name to see its typical harvest window and care intervals.</div></div>
 <div class="col-12"><label class="form-label">Plot <span class="text-muted" id="plotHint">— pick a plot, then tap a cell</span></label><select name="area" id="plant_area" class="form-select"><option value="">— unplaced —</option>{% for a in areas %}<option value="{{ a.id }}" data-rows="{{ a.rows }}" data-cols="{{ a.cols }}">{{ a.name }} ({{ a.rows }}×{{ a.cols }} {{ a.get_kind_display|lower }})</option>{% endfor %}</select></div>
 <div class="col-12 d-none" id="cellPickerWrap"><div id="cellPicker" class="d-grid gap-1"></div></div>
 <div class="col-4"><label class="form-label">Cell X <small class="text-muted">(col)</small></label><input type="number" name="pos_x" id="plant_x" class="form-control" value="0" min="0"></div>
 <div class="col-4"><label class="form-label">Cell Y <small class="text-muted">(row)</small></label><input type="number" name="pos_y" id="plant_y" class="form-control" value="0" min="0"></div>
 <div class="col-4"><label class="form-label">Qty</label><input type="number" name="quantity" id="plant_qty" class="form-control" value="1" min="1"></div>
 <div class="col-12"><label class="form-label">Notes</label><textarea name="notes" id="plant_notes" class="form-control" rows="2"></textarea></div>
-<p class="text-muted small mb-0">Tip: harvest days are counted from sowing for direct-seeded crops, or from the transplant date for transplanted crops. Tree crops can take years; the form shows a year estimate for long values. Leave harvest/water/fertilize blank to use the suggested crop defaults; you can always override them for your variety.</p>
+<p class="text-muted small mb-0">Tip: choosing a crop fills in suggested water, fertilize, and harvest intervals in real time; edit any field to override the suggestion. Harvest days are counted from sowing for direct-seeded crops, or from the transplant date for transplanted crops. Tree crops can take years; the form shows a year estimate for long values. Clearing a field before saving falls back to the crop default.</p>
 </div></div>
 <div class="modal-footer"><button class="btn btn-ghost-secondary" data-bs-dismiss="modal" type="button">Cancel</button><button class="btn btn-primary" type="submit">Save</button></div>
 </form></div></div></div>
@@ -67,10 +67,12 @@
   const picker=document.getElementById('cellPicker'), pickerWrap=document.getElementById('cellPickerWrap'), hint=document.getElementById('plotHint');
   const nameInput=document.getElementById('plant_name'), startSel=document.getElementById('plant_start_method');
   const daysInput=document.getElementById('plant_dth'), daysPreview=document.getElementById('plant_dth_hint'), harvestHint=document.getElementById('harvestHint');
+  const waterInput=document.getElementById('plant_water'), waterHint=document.getElementById('plant_water_hint');
+  const fertInput=document.getElementById('plant_fert'), fertHint=document.getElementById('plant_fert_hint');
   const dateLabel=document.getElementById('plantDateLabel');
   const AREA_MAP={{ area_map_json|safe }};
   const CROP_GUIDE={{ crop_guide_json|safe }};
-  let lastSuggestion=null;
+  let lastSuggestion=null, lastWaterSuggestion=null, lastFertSuggestion=null;
 
   function normalizeName(value){
     return (value||'').toLowerCase().trim().replace(/[^a-z0-9]+/g,' ').trim();
@@ -101,11 +103,12 @@
       const method=requested==='transplant'?'transplant':'direct';
       const fallback=method==='transplant'?{days:50,min:45,max:60}:{days:60,min:50,max:70};
       return {known:false,method:method,days:fallback.days,min:fallback.min,max:fallback.max,
-              label:nameInput.value.trim()||'This crop'};
+              water:2,fert:14,label:nameInput.value.trim()||'This crop'};
     }
     const method=requested||crop.default_method;
     const bounds=crop.ranges[method]||crop.ranges[crop.default_method];
     return {known:true,method:method,days:crop.days[method],min:bounds[0],max:bounds[1],
+            water:Number(crop.water_every_days)||2,fert:Number(crop.fertilize_every_days)||14,
             label:crop.label,note:crop.note};
   }
   function renderHarvestHint(options){
@@ -113,12 +116,22 @@
     const s=currentSuggestion();
     const typed=nameInput.value.trim();
     if(!typed){
-      if(options.autoFill!==false&&lastSuggestion!==null&&daysInput.value===String(lastSuggestion)){
-        daysInput.value='';
+      if(options.autoFill!==false){
+        if(lastSuggestion!==null&&daysInput.value===String(lastSuggestion)){
+          daysInput.value='';
+        }
+        if(lastWaterSuggestion!==null&&waterInput.value===String(lastWaterSuggestion)){
+          waterInput.value='';
+        }
+        if(lastFertSuggestion!==null&&fertInput.value===String(lastFertSuggestion)){
+          fertInput.value='';
+        }
       }
       dateLabel.textContent=startSel.value==='transplant'?'Transplant date':startSel.value==='direct'?'Sowing date':'Planting date';
-      harvestHint.textContent='Enter a crop name to see its typical harvest window.';
-      lastSuggestion=null;
+      harvestHint.textContent='Enter a crop name to see its typical harvest window and care intervals.';
+      waterHint.textContent='';
+      fertHint.textContent='';
+      lastSuggestion=null; lastWaterSuggestion=null; lastFertSuggestion=null;
       renderDaysPreview();
       return;
     }
@@ -132,11 +145,23 @@
       message='No crop-specific estimate for "'+typed+'". Using '+formatDays(s.days)+' as a fallback; adjust as needed.';
     }
     harvestHint.textContent=message;
+    waterHint.textContent='Suggested: '+formatDays(s.water);
+    fertHint.textContent='Suggested: '+formatDays(s.fert);
     const isAuto=options.autoFill!==false&&(daysInput.value===''||(lastSuggestion!==null&&daysInput.value===String(lastSuggestion)));
     if(isAuto){
       daysInput.value=s.days;
     }
     lastSuggestion=s.days;
+    const waterIsAuto=options.autoFill!==false&&(waterInput.value===''||(lastWaterSuggestion!==null&&waterInput.value===String(lastWaterSuggestion)));
+    if(waterIsAuto){
+      waterInput.value=s.water;
+    }
+    lastWaterSuggestion=s.water;
+    const fertIsAuto=options.autoFill!==false&&(fertInput.value===''||(lastFertSuggestion!==null&&fertInput.value===String(lastFertSuggestion)));
+    if(fertIsAuto){
+      fertInput.value=s.fert;
+    }
+    lastFertSuggestion=s.fert;
     renderDaysPreview();
   }
   function renderPicker(){
@@ -167,12 +192,16 @@
   nameInput.addEventListener('input',()=>renderHarvestHint());
   startSel.addEventListener('change',()=>renderHarvestHint());
   daysInput.addEventListener('input',()=>{lastSuggestion=null;renderDaysPreview();});
+  waterInput.addEventListener('input',()=>{lastWaterSuggestion=null;});
+  fertInput.addEventListener('input',()=>{lastFertSuggestion=null;});
   modal.addEventListener('show.bs.modal', e=>{
     const b=e.relatedTarget; form.reset(); err.classList.add('d-none');
-    lastSuggestion=null;
+    lastSuggestion=null; lastWaterSuggestion=null; lastFertSuggestion=null;
     document.getElementById('plantModalTitle').textContent='Add Plant';
     dateLabel.textContent='Planting date';
-    harvestHint.textContent='Enter a crop name to see its typical harvest window.';
+    harvestHint.textContent='Enter a crop name to see its typical harvest window and care intervals.';
+    waterHint.textContent='';
+    fertHint.textContent='';
     renderDaysPreview();
     renderPicker();
     if(b&&b.getAttribute('data-mode')==='edit'){

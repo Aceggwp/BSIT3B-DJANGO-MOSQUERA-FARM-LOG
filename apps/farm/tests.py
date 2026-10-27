@@ -175,6 +175,8 @@ class FarmCropCatalogTests(TestCase):
             payload["crops"]["rambutan"]["ranges"]["transplant"],
             [730, 1460],
         )
+        self.assertEqual(payload["crops"]["rambutan"]["water_every_days"], 3)
+        self.assertEqual(payload["crops"]["rambutan"]["fertilize_every_days"], 30)
 
     def test_duration_filters_render_years_for_large_values(self):
         from apps.farm.templatetags.farm_filters import days_duration, days_range
@@ -473,6 +475,12 @@ class FarmQuickLogTests(TestCase):
         self.assertContains(response, "Bed (2×3")
         self.assertContains(response, "cellPicker")
         self.assertContains(response, "Lettuce")
+
+    def test_plant_list_embeds_crop_care_defaults_for_realtime_form(self):
+        response = self.client.get(reverse("farm:plant_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'water_every_days": 3')
+        self.assertContains(response, 'fertilize_every_days": 30')
 
 
 def _fake_forecast_response(rain_mm_per_slot):
