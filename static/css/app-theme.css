@@ -1041,7 +1041,7 @@ body {
   z-index: 2;
 }
 
-/* Bottom controls — brush trigger and avatar stacked with equal gaps */
+/* Bottom controls — settings gear and avatar stacked with equal gaps */
 .dh-sidebar-dark .dh-sidebar-bottom {
   width: 100%;
   margin-top: auto;

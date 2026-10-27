@@ -2,8 +2,8 @@
 
 Database design for the farm management app (Django, dev DB: SQLite;
 production-style DDL: MariaDB 10.4 / MySQL 8, `utf8mb4`).
-Generated from the current models in `apps/farm/models.py`,
-`apps/core/models.py`, and `apps/info/models.py`.
+Generated from the current models in `apps/farm/models.py`
+and `apps/core/models.py`.
 
 ## 1. Entities & relationships
 
@@ -15,7 +15,6 @@ erDiagram
     auth_user ||--o{ farm_carelog : "owns"
     auth_user ||--o{ farm_dailycheck : "owns"
     auth_user ||--o{ core_loginevent : "records"
-    auth_user ||--o{ tblinfo : "profile"
 
     farm_gardenarea ||--o{ farm_plant : "contains"
     farm_plant ||--o{ farm_reminder : "triggers"
@@ -206,19 +205,6 @@ Relationship rules:
 | `user_agent` | VARCHAR(255) | YES | NULL | Browser/device string |
 
 - **Index:** (`created_at` DESC).
-
-### `tblinfo` — staff profile (existing table, kept as-is)
-
-| Column | Type | Null | Default | Notes |
-|---|---|---|---|---|
-| `id` | BIGINT | NO | AUTO_INCREMENT | Primary key |
-| `name` | VARCHAR(255) | NO | — | |
-| `age` | INT UNSIGNED | NO | — | CHECK 1–150 |
-| `address` | VARCHAR(255) | NO | — | |
-| `email` | VARCHAR(255) | NO | — | |
-| `user_id` | INT | YES | NULL | FK → `auth_user(id)`, CASCADE |
-| `created_at` | DATETIME(6) | NO | CURRENT_TIMESTAMP(6) | |
-| `updated_at` | DATETIME(6) | NO | CURRENT_TIMESTAMP(6) ON UPDATE | |
 
 ## 3. Design notes
 

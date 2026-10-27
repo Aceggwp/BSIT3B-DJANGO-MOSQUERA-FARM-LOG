@@ -45,8 +45,7 @@ role-based accounts with login tracking.
   logs, and recent daily checks; plus an AI harvest check for one plant or
   every plant, powered by Gemini or OpenRouter. Audit results are advisory and
   never change stored dates automatically.
-- **Dashboard** — plant counts, due reminders, harvest-ready plants, weather,
-  recent checks, and upcoming tasks.
+- **Farm dashboard (landing page)** — plant counts, due reminders, harvest-ready plants, weather, recent checks, and upcoming tasks. Signing in takes you here.
 
 ### Accounts & administration
 
@@ -56,10 +55,15 @@ role-based accounts with login tracking.
 - **Login tracking** — every successful sign-in records time, IP address, and
   user agent.
 - **Admin-only user management** — create, edit, deactivate, and delete users.
-- **Staff profiles** — `Info` records for name, age, address, and email.
-- **Role-based data isolation** — staff see only their own farm/profile data;
+- **Role-based data isolation** — staff see only their own farm data;
   superusers can see and manage everything.
 - **Django admin** at `/admin/` for direct database administration.
+
+### Interface
+
+- **Theme settings** — the gear above Log out opens a panel for color mode,
+  accent color, font family, theme base, and corner radius. Preferences are
+  saved in the browser and apply across the app.
 
 ## Tech stack
 
@@ -79,13 +83,12 @@ role-based accounts with login tracking.
 manage.py
 mysite/                  # project settings and root URL configuration
 apps/
-  core/                  # login, registration, login events, home page
+  core/                  # login, registration, login events
   users/                 # admin-only user management
-  info/                  # staff profile records (tblinfo)
   farm/                  # plants, reminders, care logs, map, weather, AI
     crops.py             # crop maturity ranges, aliases, start-method defaults
     management/commands/ # seed_farm.py, sync_reminders.py
-templates/               # auth, theme, farm, users, info, home templates
+templates/               # auth, theme, farm, and users templates
 static/                  # Tabler UI and vendored front-end libraries
 docs/
   initial-table-design.md
@@ -111,7 +114,6 @@ erDiagram
     auth_user ||--o{ farm_carelog : "owns"
     auth_user ||--o{ farm_dailycheck : "owns"
     auth_user ||--o{ core_loginevent : "records"
-    auth_user ||--o{ tblinfo : "profile"
 
     farm_gardenarea ||--o{ farm_plant : "contains"
     farm_plant ||--o{ farm_reminder : "triggers"
@@ -130,7 +132,6 @@ erDiagram
 | `farm_carelog` | Care history | user, plant, date, category (`growth`, `pest`, `weather`, `note`), description, photo |
 | `farm_dailycheck` | One monitoring entry per plant per day | user, plant, date, watered, fertilized, health, height, notes; unique (`plant`, `date`) |
 | `core_loginevent` | Sign-in audit trail | user, timestamp, IP address, user agent |
-| `tblinfo` | Staff profile | name, age (1–150), address, email, user |
 
 ### Relationship rules
 
@@ -147,7 +148,7 @@ erDiagram
    `expected_harvest_date` is computed from `planting_date + days_to_harvest`,
    never stored. `start_method` records whether that day count is from sowing
    or from transplanting.
-2. **Per-user isolation:** every farm, profile, and login table carries
+2. **Per-user isolation:** every farm and login table carries
    `user_id`, and queries filter by the signed-in user unless they are a
    superuser.
 3. **Cascade policy:** area → plants uses `SET NULL`; plant → reminders, logs,
@@ -163,8 +164,8 @@ erDiagram
 
 | Role | Access |
 |---|---|
-| **Superuser / Admin** | All farm and profile records, user management, Django admin |
-| **Staff** | Own farm dashboard, plants, reminders, logs, checks, map, and own profile |
+| **Superuser / Admin** | All farm records, user management, Django admin |
+| **Staff** | Own farm dashboard, plants, reminders, logs, checks, and map |
 
 Public registration always creates a **staff** account. Create an admin with
 `python manage.py createsuperuser`.
@@ -240,7 +241,14 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-Open <http://127.0.0.1:8000/> and sign in.
+Open <http://127.0.0.1:8000/> and sign in. The farm dashboard at `/farm/` is
+the landing page.
+
+Run the test suite:
+
+```bash
+python manage.py test
+```
 
 ### Optional sample data
 
@@ -255,6 +263,24 @@ for the given account. Use `--clear` to wipe that user's farm data first.
 
 No keys are required for the default weather provider. All integrations fail
 softly when unavailable.
+
+Copy `.env.example` to `.env` and fill in the keys you use. `.env` is gitignored
+and loaded automatically by `mysite/settings.py`; variables already set in the
+environment take priority.
+
+```bash
+copy .env.example .env   # Windows
+cp .env.example .env     # macOS/Linux
+```
+
+Verify the AI backend after adding a key (the server picks up `.env` on reload):
+
+```bash
+python manage.py check_ai          # show provider, model, and key status
+python manage.py check_ai --live   # send a test prompt to the provider
+```
+
+The same settings can also be exported as environment variables:
 
 ```bash
 # Weather (Open-Meteo is the default and needs no key)
@@ -271,9 +297,11 @@ set OPENWEATHER_API_KEY=your_key
 
 # AI advice & harvest check — choose one provider
 set GEMINI_API_KEY=your_key
+set GEMINI_MODEL=gemini-3.5-flash
 set AI_PROVIDER=gemini
 # or
 set OPENROUTER_API_KEY=your_key
+set OPENROUTER_MODEL=google/gemma-4-31b-it:free
 set AI_PROVIDER=openrouter
 ```
 
@@ -290,3 +318,5 @@ set AI_PROVIDER=openrouter
 - Uploaded care photos are limited to 5 MB and JPG, PNG, WEBP, or GIF.
 - The UI uses the vendored Tabler theme under `static/`; no separate
   front-end build step is needed.
+- This build has no separate Home or Info pages; the farm dashboard is the
+  landing page after sign-in.

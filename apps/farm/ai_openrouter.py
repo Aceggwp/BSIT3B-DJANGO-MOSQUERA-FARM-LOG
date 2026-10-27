@@ -6,9 +6,12 @@ Get a key at https://openrouter.ai/keys (free :free models available).
 """
 
 import json
+import urllib.error
 import urllib.request
 
 from django.conf import settings
+
+from .ai_http import http_error_message
 
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -41,6 +44,8 @@ def ask_openrouter(prompt: str, timeout: int = 30) -> dict:
     try:
         with urllib.request.urlopen(request, timeout=timeout) as resp:
             data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        return {"ok": False, "error": http_error_message("OpenRouter", exc)}
     except Exception as exc:
         return {"ok": False, "error": f"OpenRouter request failed: {exc}"}
     try:

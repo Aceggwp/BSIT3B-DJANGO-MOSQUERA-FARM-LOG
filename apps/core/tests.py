@@ -3,22 +3,6 @@ from django.test import TestCase
 from django.urls import reverse
 
 
-class HomeViewTests(TestCase):
-    def test_home_renders_for_authenticated_user(self):
-        user = get_user_model().objects.create_user(username='admin', password='secret1234')
-
-        self.client.force_login(user)
-        response = self.client.get(reverse('dashboard'))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'home.html')
-
-    def test_home_requires_login(self):
-        response = self.client.get(reverse('dashboard'))
-
-        self.assertEqual(response.status_code, 302)
-
-
 class LoginTrackingTests(TestCase):
     def test_successful_login_records_event(self):
         from apps.core.models import LoginEvent
@@ -69,17 +53,10 @@ class LoginTrackingTests(TestCase):
             reverse('login'), {'username': 'staffer2', 'password': 'StrongPass123!'})
         self.assertEqual(response.status_code, 302)
         self.assertEqual(self.client.get(reverse('users:user_list')).status_code, 302)
-        self.assertEqual(self.client.get(reverse('dashboard')).status_code, 200)
+        self.assertEqual(self.client.get(reverse('farm:dashboard')).status_code, 200)
 
     def test_login_page_links_to_register(self):
         self.assertContains(self.client.get(reverse('login')), 'Register')
-
-    def test_dashboard_shows_recent_logins(self):
-        get_user_model().objects.create_user(username='viewer', password='secret1234')
-        self.client.post(reverse('login'), {'username': 'viewer', 'password': 'secret1234'})
-        response = self.client.get(reverse('dashboard'))
-        self.assertContains(response, 'Recent logins')
-        self.assertContains(response, 'viewer')
 
     def test_login_updates_last_login(self):
         user = get_user_model().objects.create_user(username='lastlog', password='secret1234')
@@ -87,3 +64,19 @@ class LoginTrackingTests(TestCase):
         self.client.post(reverse('login'), {'username': 'lastlog', 'password': 'secret1234'})
         user.refresh_from_db()
         self.assertIsNotNone(user.last_login)
+
+
+class ThemeSettingsAccessTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_superuser(
+            username='theme_admin', email='theme@example.com', password='secret1234')
+        self.client.force_login(self.user)
+
+    def test_settings_gear_on_users_and_farm(self):
+        for url in (reverse('users:user_list'), reverse('farm:dashboard')):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, 'dh-settings-trigger')
+                self.assertContains(response, 'id="offcanvasSettings"')
+                self.assertContains(response, 'aria-label="Theme settings"')

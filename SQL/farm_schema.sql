@@ -1,6 +1,6 @@
 -- MOSQUERA Farm Logs — initial table design (DDL)
 -- Target: MariaDB 10.4+ / MySQL 8, utf8mb4
--- Creates the farm, core (login tracking), and info tables.
+-- Creates the farm and core (login tracking) tables.
 -- Django's auth_* tables are created by `python manage.py migrate`.
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
@@ -125,23 +125,6 @@ CREATE TABLE `core_loginevent` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `tblinfo`
---
-
-CREATE TABLE `tblinfo` (
-  `id` bigint(20) NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `age` int(10) UNSIGNED NOT NULL CHECK (`age` BETWEEN 1 AND 150),
-  `address` varchar(255) NOT NULL,
-  `email` varchar(255) NOT NULL,
-  `user_id` int(11) DEFAULT NULL,
-  `created_at` datetime(6) NOT NULL,
-  `updated_at` datetime(6) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
 -- Indexes for dumped tables
 --
 
@@ -177,10 +160,6 @@ ALTER TABLE `core_loginevent`
   ADD KEY `core_loginevent_created_at` (`created_at`),
   ADD KEY `core_loginevent_user_id` (`user_id`);
 
-ALTER TABLE `tblinfo`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `tblinfo_user_id` (`user_id`);
-
 -- --------------------------------------------------------
 
 --
@@ -193,7 +172,6 @@ ALTER TABLE `farm_reminder` MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `farm_carelog` MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `farm_dailycheck` MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `core_loginevent` MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `tblinfo` MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
 -- --------------------------------------------------------
 
@@ -222,9 +200,6 @@ ALTER TABLE `farm_dailycheck`
 
 ALTER TABLE `core_loginevent`
   ADD CONSTRAINT `core_loginevent_user_id_fk` FOREIGN KEY (`user_id`) REFERENCES `auth_user` (`id`) ON DELETE CASCADE;
-
-ALTER TABLE `tblinfo`
-  ADD CONSTRAINT `tblinfo_user_id_fk` FOREIGN KEY (`user_id`) REFERENCES `auth_user` (`id`) ON DELETE CASCADE;
 
 COMMIT;
 

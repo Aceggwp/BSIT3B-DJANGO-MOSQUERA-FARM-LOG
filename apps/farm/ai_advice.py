@@ -8,12 +8,14 @@ friendly message. Get a free key at https://aistudio.google.com → Get API key.
 
 import json
 import re
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import date
 
 from django.conf import settings
 
+from .ai_http import http_error_message
 from .crops import defaults_for
 
 API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
@@ -24,7 +26,7 @@ def is_configured() -> bool:
 
 
 def model_name() -> str:
-    return getattr(settings, "GEMINI_MODEL", "gemini-flash-latest")
+    return getattr(settings, "GEMINI_MODEL", "gemini-3.5-flash")
 
 
 def build_prompt(plant, logs, checks, weather: dict) -> str:
@@ -197,6 +199,8 @@ def ask_gemini(prompt: str, timeout: int = 25) -> dict:
     try:
         with urllib.request.urlopen(request, timeout=timeout) as resp:
             data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        return {"ok": False, "error": http_error_message("Gemini", exc)}
     except Exception as exc:
         return {"ok": False, "error": f"Gemini request failed: {exc}"}
     try:

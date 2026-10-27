@@ -404,12 +404,12 @@ class FarmQuickLogTests(TestCase):
         self.assertContains(response, "toast-container")
         self.assertContains(response, "Watered 2 plant(s)")
 
-    def test_sidebar_badges_and_collapse(self):
+    def test_sidebar_badges(self):
         Reminder.objects.create(user=self.user, plant=self.p1,
                                 kind="water", message="Water", due_date=date.today())
         response = self.client.get(reverse("farm:dashboard"))
-        self.assertContains(response, "farmMenu")
-        self.assertContains(response, "count-badge")
+        self.assertContains(response, 'id="nav-badge-plants"')
+        self.assertContains(response, 'id="nav-badge-due"')
 
     def test_stats_ajax_counts(self):
         Reminder.objects.create(user=self.user, plant=self.p1,
@@ -426,19 +426,6 @@ class FarmQuickLogTests(TestCase):
     def test_stats_ajax_requires_login(self):
         self.client.logout()
         self.assertEqual(self.client.get(reverse("farm:stats_ajax")).status_code, 302)
-
-    def test_sidebar_farm_collapsed_off_farm(self):
-        response = self.client.get(reverse("info:info_list"))
-        self.assertContains(response, 'aria-expanded="false"')
-
-    def test_login_history_link_admin_only(self):
-        boss = get_user_model().objects.create_superuser(
-            username="navboss", password="secret1234", email="n@example.com")
-        self.client.force_login(boss)
-        self.assertNotContains(self.client.get(reverse("dashboard")), "Login History")
-        self.client.force_login(self.user)
-        response = self.client.get(reverse("dashboard"))
-        self.assertNotContains(response, "Login History")
 
     def test_area_create(self):
         response = self.client.post(reverse("farm:area_save_ajax"), {
@@ -742,10 +729,28 @@ class FarmGeminiTests(TestCase):
                 result = gemini.ask_gemini("hello")
         self.assertFalse(result["ok"])
 
+    def test_http_error_includes_api_message(self):
+        import io
+        import urllib.error
+        from unittest import mock
+        from django.test import override_settings
+        from apps.farm import ai_advice as gemini
+
+        body = b'{"error": {"code": 400, "message": "API key not valid."}}'
+        error = urllib.error.HTTPError("https://example.test", 400, "Bad Request", {}, io.BytesIO(body))
+        with override_settings(GEMINI_API_KEY="bad-key"):
+            with mock.patch("urllib.request.urlopen", side_effect=error):
+                result = gemini.ask_gemini("hello")
+        self.assertFalse(result["ok"])
+        self.assertIn("HTTP 400", result["error"])
+        self.assertIn("API key not valid.", result["error"])
+
     def test_view_requires_key(self):
+        from django.test import override_settings
         plant = self._plant()
         self.client.force_login(self.user)
-        response = self.client.post(reverse("farm:ai_advice_ajax", args=[plant.id]))
+        with override_settings(GEMINI_API_KEY=""):
+            response = self.client.post(reverse("farm:ai_advice_ajax", args=[plant.id]))
         self.assertEqual(response.status_code, 400)
 
     def test_view_saves_advice_to_care_history(self):
@@ -828,6 +833,22 @@ class FarmOpenRouterTests(TestCase):
                 result = orouter.ask_openrouter("hello")
         self.assertFalse(result["ok"])
         self.assertIn("No credits", result["error"])
+
+    def test_http_error_includes_api_message(self):
+        import io
+        import urllib.error
+        from unittest import mock
+        from django.test import override_settings
+        from apps.farm import ai_openrouter as orouter
+
+        body = b'{"error": {"message": "No auth credentials found", "code": 401}}'
+        error = urllib.error.HTTPError("https://example.test", 401, "Unauthorized", {}, io.BytesIO(body))
+        with override_settings(OPENROUTER_API_KEY="bad-key"):
+            with mock.patch("urllib.request.urlopen", side_effect=error):
+                result = orouter.ask_openrouter("hello")
+        self.assertFalse(result["ok"])
+        self.assertIn("HTTP 401", result["error"])
+        self.assertIn("No auth credentials found", result["error"])
 
     def test_view_uses_openrouter_when_selected(self):
         import json

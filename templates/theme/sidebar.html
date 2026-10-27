@@ -2,7 +2,7 @@
   <div class="container-fluid p-0">
     <!-- Brand mark (icon-only, flat vector) -->
     <div class="navbar-brand dh-brand-dark text-center py-4 px-2 border-bottom border-neon">
-      <a href="{% url 'dashboard' %}" class="d-flex flex-column align-items-center gap-1 text-decoration-none" title="Go to Dashboard" aria-label="MOSQUERA Farm Logs — Dashboard">
+      <a href="{% url 'farm:dashboard' %}" class="d-flex flex-column align-items-center gap-1 text-decoration-none" title="Go to Farm Dashboard" aria-label="MOSQUERA Farm Logs — Farm Dashboard">
         <span class="dh-brand-mark dh-brand-leaf d-inline-flex">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="width:1.6rem;height:1.6rem;">
             <path d="M12 2C7.5 7 4.5 11.5 4.5 15.5a7.5 7.5 0 0 0 7.5 7.5c4 0 7.5-3.5 7.5-7.5C19.5 11 16.5 6.5 12 2Z" fill="var(--tblr-primary)"/>
@@ -14,13 +14,6 @@
 
     <!-- Icon-only navigation -->
     <ul class="navbar-nav flex-fill pt-2">
-      <!-- Dashboard -->
-      <li class="nav-item">
-        <a class="nav-link nav-link-dark {% if request.resolver_match.url_name == 'dashboard' and request.resolver_match.namespace == '' %}active{% endif %}" href="{% url 'dashboard' %}" title="Dashboard" data-bs-toggle="tooltip" data-bs-placement="right">
-          <span class="nav-link-icon-wrap"><i class="fas fa-dashboard"></i></span>
-        </a>
-      </li>
-
       <!-- Users (superuser only) -->
       {% if user.is_superuser %}
       <li class="nav-item">
@@ -29,13 +22,6 @@
         </a>
       </li>
       {% endif %}
-
-      <!-- Info -->
-      <li class="nav-item">
-        <a class="nav-link nav-link-dark {% if request.resolver_match.app_name == 'info' %}active{% endif %}" href="{% url 'info:info_list' %}" title="Info" data-bs-toggle="tooltip" data-bs-placement="right">
-          <span class="nav-link-icon-wrap"><i class="fas fa-address-card"></i></span>
-        </a>
-      </li>
 
       <!-- Farm Dashboard -->
       <li class="nav-item">
@@ -90,8 +76,8 @@
         data-bs-toggle="offcanvas"
         data-bs-target="#offcanvasSettings"
         aria-controls="offcanvasSettings"
-        aria-label="Theme Settings"
-        title="Theme Settings"
+        aria-label="Theme settings"
+        title="Theme settings"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -105,10 +91,8 @@
           stroke-linejoin="round"
           aria-hidden="true"
         >
-          <path d="M3 21v-4a4 4 0 1 1 4 4h-4" />
-          <path d="M21 3a16 16 0 0 0 -12.8 10.2" />
-          <path d="M21 3a16 16 0 0 1 -10.2 12.8" />
-          <path d="M10.6 9a9 9 0 0 1 4.4 4.4" />
+          <path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z" />
+          <circle cx="12" cy="12" r="3" />
         </svg>
       </a>
       {% if user.is_authenticated %}

@@ -71,10 +71,11 @@ class UserCrudTests(TestCase):
             self.assertIn(response.status_code, (302, 403), url)
 
     def test_sidebar_users_link_admin_only(self):
+        users_url = reverse('users:user_list')
         self.client.force_login(self.admin)
-        self.assertContains(self.client.get(reverse('dashboard')), 'Users')
+        self.assertContains(self.client.get(reverse('farm:dashboard')), f'href="{users_url}"')
         self.client.force_login(self.staff)
-        self.assertNotContains(self.client.get(reverse('dashboard')), 'Users')
+        self.assertNotContains(self.client.get(reverse('farm:dashboard')), f'href="{users_url}"')
 
     def test_list_shows_add_button_and_last_login(self):
         response = self.client.get(reverse('users:user_list'))

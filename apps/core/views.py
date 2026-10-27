@@ -2,7 +2,6 @@ from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth import authenticate, get_user_model, login, logout
-from django.contrib.auth.decorators import login_required
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
@@ -118,7 +117,7 @@ def _validate_registration_data(data):
 @require_http_methods(['GET', 'POST'])
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect('dashboard')
+        return redirect('farm:dashboard')
 
     failed_attempts, remaining = _get_lock_state(request)
     if remaining is not None:
@@ -136,7 +135,7 @@ def login_view(request):
         _reset_lock_state(request)
         login(request, user)
         _record_login(request, user)
-        return redirect('dashboard')
+        return redirect('farm:dashboard')
 
     failed_attempts += 1
     request.session['failed_attempts'] = failed_attempts
@@ -155,17 +154,10 @@ def logout_view(request):
     return redirect('login')
 
 
-@login_required(login_url='login')
-def home(request):
-    from .models import LoginEvent
-    recent_logins = LoginEvent.objects.select_related('user').order_by('-created_at')[:10]
-    return render(request, 'home.html', {'recent_logins': recent_logins})
-
-
 @require_http_methods(['GET', 'POST'])
 def register_view(request):
     if request.user.is_authenticated:
-        return redirect('dashboard')
+        return redirect('farm:dashboard')
 
     if request.method == 'GET':
         return render(request, 'auth/register.html')
@@ -196,4 +188,4 @@ def register_view(request):
     user.save()
     login(request, user)
     _record_login(request, user)
-    return redirect('dashboard')
+    return redirect('farm:dashboard')

@@ -24,7 +24,7 @@ def _json_for_script(value):
             .replace("&", "\\u0026"))
 
 
-# ---------- scoping helpers (same pattern as apps.scoping) ----------
+# ---------- scoping helpers ----------
 
 def _plants(user):
     if user.is_superuser:

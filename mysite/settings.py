@@ -17,6 +17,30 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def _load_dotenv(path):
+    """Load KEY=value pairs from a local .env file without overriding real env vars."""
+    try:
+        lines = path.read_text(encoding="utf-8-sig").splitlines()
+    except FileNotFoundError:
+        return
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        if key.startswith("export "):
+            key = key[7:].strip()
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+            value = value[1:-1]
+        if key:
+            os.environ.setdefault(key, value)
+
+
+_load_dotenv(BASE_DIR / ".env")
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
@@ -41,7 +65,6 @@ INSTALLED_APPS = [
 
     'apps.core',
     'apps.users',
-    'apps.info',
     'apps.farm',
 ]
 
@@ -138,7 +161,7 @@ STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
 
-LOGIN_REDIRECT_URL = '/home/'
+LOGIN_REDIRECT_URL = '/farm/'
 LOGOUT_REDIRECT_URL = '/'
 
 MEDIA_URL = '/media/'
@@ -158,7 +181,7 @@ FARM_WEATHER_CACHE_SECONDS = int(os.environ.get('FARM_WEATHER_CACHE_SECONDS', '1
 
 # Mosquera Farm Log — Gemini AI advice (https://aistudio.google.com, free tier).
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
-GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-flash-latest')
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-3.5-flash')
 
 # Mosquera Farm Log — OpenRouter AI backend (https://openrouter.ai/keys).
 # AI_PROVIDER selects which backend the AI advice and harvest-check buttons use.
