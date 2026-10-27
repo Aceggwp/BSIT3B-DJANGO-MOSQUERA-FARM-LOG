@@ -69,29 +69,23 @@ def _bulk_check(plants, today, **flags):
 
 
 def _rollover_reminder(user, plant, kind, from_date):
-    """Automation: schedule the next recurring occurrence after one is done.
+    """Automation: schedule the next water/fertilize occurrence after one is done.
 
-    Covers water, fertilize, and the monthly health check. Creates it only
-    when no open reminder of that kind remains (steady state: at most one
-    open per kind per plant). Harvest/custom never roll over.
+    Creates it only when no open reminder of that kind remains (steady state:
+    at most one open per kind per plant). Harvest/custom never roll over.
     """
-    intervals = {
-        "water": plant.water_every_days,
-        "fertilize": plant.fertilize_every_days,
-        "health": plant.health_check_every_days,
-    }
-    if kind not in intervals:
+    if kind not in ("water", "fertilize"):
         return None
     if plant.reminders.filter(kind=kind, is_done=False).exists():
         return None
-    messages = {
-        "water": f"Water the {plant.name.lower()} today",
-        "fertilize": f"Fertilize the {plant.name.lower()} this weekend",
-        "health": f"Monthly health check: inspect the {plant.name.lower()}",
-    }
+    interval = plant.water_every_days if kind == "water" else plant.fertilize_every_days
+    if kind == "water":
+        message = f"Water the {plant.name.lower()} today"
+    else:
+        message = f"Fertilize the {plant.name.lower()} this weekend"
     return Reminder.objects.create(
-        user=user, plant=plant, kind=kind, message=messages[kind],
-        due_date=from_date + timedelta(days=max(1, intervals[kind])),
+        user=user, plant=plant, kind=kind, message=message,
+        due_date=from_date + timedelta(days=max(1, interval)),
     )
 
 
@@ -267,16 +261,14 @@ def _shift_interval_reminders(plant, kind, old_auto, new_auto):
     return moved
 
 
-def _sync_reminders_after_edit(
-    plant, old_name, old_expected, old_water=None, old_fert=None, old_health=None
-):
+def _sync_reminders_after_edit(plant, old_name, old_expected, old_water=None, old_fert=None):
     """Sync open auto reminders after a plant edit so /farm/reminders/ stays fresh.
 
-    - Renames propagate into water/fertilize/harvest/health messages.
+    - Renames propagate into water/fertilize/harvest messages.
     - Harvest due date + message date follow a changed planting/harvest date,
       but only when the reminder still sits on the old auto date (a manually
       moved reminder is left alone).
-    - Water/fertilize/health due dates follow an interval change the same way
+    - Water/fertilize due dates follow an interval change the same way
       (anchor: creation day + interval).
     - Custom reminders and done reminders are never touched.
     """
@@ -285,9 +277,7 @@ def _sync_reminders_after_edit(
     rescheduled = old_expected != new_expected
     touched = 0
     if renamed or rescheduled:
-        for r in plant.reminders.filter(
-            is_done=False, kind__in=["water", "fertilize", "harvest", "health"]
-        ):
+        for r in plant.reminders.filter(is_done=False, kind__in=["water", "fertilize", "harvest"]):
             updated = False
             if renamed and old_name:
                 new_msg = r.message.replace(old_name.lower(), plant.name.lower())
@@ -317,11 +307,6 @@ def _sync_reminders_after_edit(
                 plant, "fertilize",
                 anchor + timedelta(days=old_fert),
                 anchor + timedelta(days=plant.fertilize_every_days))
-        if old_health is not None and old_health != plant.health_check_every_days:
-            touched += _shift_interval_reminders(
-                plant, "health",
-                anchor + timedelta(days=old_health),
-                anchor + timedelta(days=plant.health_check_every_days))
     return touched
 
 
@@ -330,16 +315,12 @@ def plant_detail_page(request, pk):
     plant = _plant(request.user, pk)
     reminders = plant.reminders.order_by("due_date")
     logs = plant.care_logs.order_by("-date")[:50]
-    checks = list(plant.daily_checks.order_by("-date")[:30])
+    checks = plant.daily_checks.order_by("-date")[:30]
     return render(request, "farm/plant_detail.html", {
         "plant": plant,
         "reminders": reminders,
         "logs": logs,
         "checks": checks,
-        "latest_check": checks[0] if checks else None,
-        "next_health_check": plant.reminders.filter(
-            kind="health", is_done=False
-        ).order_by("due_date").first(),
     })
 
 
@@ -363,16 +344,12 @@ def _parse_plant_form(request, plant):
         plant.days_to_harvest = int(request.POST.get("days_to_harvest") or d["days_to_harvest"])
         plant.water_every_days = int(request.POST.get("water_every_days") or d["water_every_days"])
         plant.fertilize_every_days = int(request.POST.get("fertilize_every_days") or d["fertilize_every_days"])
-        plant.health_check_every_days = int(
-            request.POST.get("health_check_every_days") or 30
-        )
         plant.quantity = int(request.POST.get("quantity") or 1)
         plant.pos_x = int(request.POST.get("pos_x") or 0)
         plant.pos_y = int(request.POST.get("pos_y") or 0)
     except (TypeError, ValueError):
         return None, "Numeric fields must be valid numbers."
-    if (plant.days_to_harvest < 1 or plant.water_every_days < 1
-            or plant.fertilize_every_days < 1 or plant.health_check_every_days < 1):
+    if plant.days_to_harvest < 1 or plant.water_every_days < 1 or plant.fertilize_every_days < 1:
         return None, "Intervals must be at least 1."
     status = request.POST.get("status", "").strip()
     if status:
@@ -394,7 +371,6 @@ def plant_get_ajax(request, pk):
         "days_to_harvest": plant.days_to_harvest,
         "water_every_days": plant.water_every_days,
         "fertilize_every_days": plant.fertilize_every_days,
-        "health_check_every_days": plant.health_check_every_days,
         "quantity": plant.quantity, "status": plant.status,
         "area": plant.area_id, "pos_x": plant.pos_x, "pos_y": plant.pos_y,
         "notes": plant.notes,
@@ -413,7 +389,6 @@ def plant_save_ajax(request):
         old_expected = plant.expected_harvest_date
         old_water = plant.water_every_days
         old_fert = plant.fertilize_every_days
-        old_health = plant.health_check_every_days
         is_update = True
     else:
         plant = Plant(user=request.user)
@@ -422,7 +397,6 @@ def plant_save_ajax(request):
         old_expected = None
         old_water = None
         old_fert = None
-        old_health = None
         is_update = False
     plant, error = _parse_plant_form(request, plant)
     if error:
@@ -436,9 +410,7 @@ def plant_save_ajax(request):
         Reminder.objects.bulk_create(Reminder.build_defaults_for_plant(plant))
     synced = 0
     if is_update and old_expected is not None:
-        synced = _sync_reminders_after_edit(
-            plant, old_name, old_expected, old_water, old_fert, old_health
-        )
+        synced = _sync_reminders_after_edit(plant, old_name, old_expected, old_water, old_fert)
     if plant.status == "dead" and not was_dead:
         msg = _notify_plant_died(plant.user, plant)
         messages.warning(request, f'"{plant.name}" marked dead. Reminder added: {msg}.')
@@ -669,7 +641,6 @@ def reminder_save_ajax(request):
             "water": f"Water the {reminder.plant.name.lower()} today",
             "fertilize": f"Fertilize the {reminder.plant.name.lower()} this weekend",
             "harvest": f"Check the {reminder.plant.name.lower()} for harvest",
-            "health": f"Monthly health check: inspect the {reminder.plant.name.lower()}",
         }
         reminder.message = defaults.get(reminder.kind, f"Check the {reminder.plant.name.lower()}")
     try:
@@ -690,7 +661,7 @@ def reminder_toggle_ajax(request, pk):
     reminder.done_at = date.today() if reminder.is_done else None
     reminder.save()
     nxt = None
-    if reminder.is_done:
+    if reminder.is_done and reminder.kind in ("water", "fertilize"):
         nxt = _rollover_reminder(reminder.user, reminder.plant, reminder.kind, date.today())
     return JsonResponse({
         "status": "success",
@@ -856,7 +827,6 @@ def dailycheck_save_ajax(request, pk):
     check, _ = DailyCheck.objects.get_or_create(
         plant=plant, date=check_date, defaults={"user": plant.user},
     )
-    health_reported = bool(request.POST.get("health"))
     check.watered = request.POST.get("watered") in ("true", "on", "1")
     check.fertilized = request.POST.get("fertilized") in ("true", "on", "1")
     check.health = request.POST.get("health", "good")
@@ -871,10 +841,6 @@ def dailycheck_save_ajax(request, pk):
         if check.fertilized:
             kinds.append("fertilize")
         _clear_due_reminders(request.user, [plant], kinds, check_date)
-    # A logged health status counts as the monthly check: close the due
-    # health reminder and schedule the next one from the check date.
-    if health_reported:
-        _clear_due_reminders(request.user, [plant], ["health"], check_date)
     if check.health == "poor" and plant.status != "dead":
         msg = _notify_plant_struggling(plant.user, plant)
         messages.warning(request, f'Poor health logged on {plant.name}. Reminder added: {msg}.')

@@ -3,8 +3,8 @@
 Django farm management app: planting & harvest tracking, custom reminders
 (weather-adaptive via Open-Meteo), visual garden layout map with companion
 planting alerts, care history with progress photos, daily monitoring with
-quick-log shortcuts, automated monthly health checks, AI advice
-(Gemini / OpenRouter), role-based auth (admin + staff), and login tracking.
+quick-log shortcuts, AI advice (Gemini / OpenRouter), role-based auth
+(admin + staff), and login tracking.
 
 ## Members
 
@@ -28,48 +28,13 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-## Automation
+Automation: completing a water/fertilize reminder auto-schedules the next
+occurrence, and plant edits sync open reminders. To backfill/ensure on a
+schedule, run `python manage.py sync_reminders` (idempotent) via cron or
+Windows Task Scheduler.
 
-Completing a water/fertilize reminder auto-schedules the next occurrence,
-and logging a health status in **Daily Monitoring** completes the due
-monthly health check and schedules the next one. Plant edits sync open
-reminders. To backfill/ensure reminders on a schedule, run
-`python manage.py sync_reminders` (idempotent) via cron or Windows Task
-Scheduler.
-
-### Monthly health checks
-
-Every plant has a recurring **Health check** reminder driven by
-`health_check_every_days` (default **30 days**):
-
-- New plants get a health-check reminder automatically.
-- Completing it — or saving any health status in **Daily Monitoring** — marks
-  the current check done and creates the next one from that date.
-- The plant page shows the **latest health** (Poor / Fair / Good / Excellent)
-  and the **next check date**.
-- Health checks appear on the **Dashboard → Due now** and the **Reminders**
-  page with a 🩺 badge, alongside water, fertilize, and harvest tasks.
-- Change the cadence per plant under **Plants → Add/Edit Plant → Health check
-  every (days)**.
-- Existing plants are backfilled by `python manage.py sync_reminders`.
-
-### Load the example
-
-The demo command is safe to re-run: it resets only its own demo plant.
-
-```bash
-python manage.py seed_health_demo --username admin
-```
-
-It creates **Demo Lettuce (Health Check)** with three daily checks
-(Fair → Good → Excellent), one completed monthly check, and one check due
-today. Open the plant, save a health status (or click **Done** on the
-reminder), and the next check is scheduled 30 days later.
-
-## Optional integrations
-
-Set via environment variables (no keys needed for the default weather
-provider):
+Optional integrations via environment variables (no keys needed for the
+default weather provider):
 
 ```bash
 set FARM_WEATHER_LAT=14.5995

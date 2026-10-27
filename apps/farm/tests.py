@@ -44,18 +44,10 @@ class FarmModelTests(TestCase):
         plant.save()
         rems = Reminder.build_defaults_for_plant(plant)
         kinds = {r.kind for r in rems}
-        self.assertEqual(kinds, {"water", "fertilize", "harvest", "health"})
+        self.assertEqual(kinds, {"water", "fertilize", "harvest"})
         Reminder.objects.bulk_create(rems)
-        self.assertEqual(plant.reminders.count(), 4)
+        self.assertEqual(plant.reminders.count(), 3)
         self.assertIn("tomato", plant.reminders.first().message.lower())
-
-    def test_monthly_health_reminder_defaults(self):
-        plant = Plant.objects.create(user=self.user, name="Lettuce",
-                                     planting_date=date.today())
-        health = [r for r in Reminder.build_defaults_for_plant(plant)
-                  if r.kind == "health"][0]
-        self.assertEqual(health.due_date, date.today() + timedelta(days=30))
-        self.assertIn("health", health.message.lower())
 
     def test_daily_check_unique_per_day(self):
         plant = Plant.objects.create(user=self.user, name="Okra")
@@ -93,8 +85,7 @@ class FarmViewTests(TestCase):
         })
         self.assertEqual(response.status_code, 200)
         plant = Plant.objects.get(user=self.user, name="Lettuce")
-        self.assertEqual(plant.reminders.count(), 4)
-        self.assertTrue(plant.reminders.filter(kind="health", is_done=False).exists())
+        self.assertEqual(plant.reminders.count(), 3)
 
     def test_daily_check_marks_reminder_done(self):
         plant = Plant.objects.create(user=self.user, name="Lettuce", planting_date=date.today())
@@ -289,9 +280,9 @@ class FarmQuickLogTests(TestCase):
         url = reverse("farm:plant_generate_reminders", args=[plant.id])
         first = self.client.post(url).json()["count"]
         second = self.client.post(url).json()["count"]
-        self.assertEqual(first, 4)
+        self.assertEqual(first, 3)
         self.assertEqual(second, 0)
-        self.assertEqual(plant.reminders.filter(is_done=False).count(), 4)
+        self.assertEqual(plant.reminders.filter(is_done=False).count(), 3)
 
     def test_plant_list_provides_plot_picker_data(self):
         area = GardenArea.objects.create(user=self.user, name="Bed", rows=2, cols=3)
@@ -956,7 +947,7 @@ class FarmPlantEditSyncTests(TestCase):
         self.assertEqual(response.status_code, 200)
         messages = set(Reminder.objects.filter(
             plant=self.plant, is_done=False,
-            kind__in=["water", "fertilize", "harvest", "health"],
+            kind__in=["water", "fertilize", "harvest"],
         ).values_list("message", flat=True))
         self.assertTrue(messages)
         self.assertTrue(all("lettucex" in m for m in messages))
@@ -1020,15 +1011,6 @@ class FarmPlantEditSyncTests(TestCase):
         water.refresh_from_db()
         self.assertEqual(water.due_date, anchor + timedelta(days=3))
 
-    def test_health_interval_moves_auto_reminder(self):
-        health = Reminder.objects.get(plant=self.plant, kind="health", is_done=False)
-        anchor = self.plant.created_at.date()
-        self.assertEqual(health.due_date, anchor + timedelta(days=30))
-        response = self._edit(health_check_every_days="45")
-        self.assertEqual(response.status_code, 200)
-        health.refresh_from_db()
-        self.assertEqual(health.due_date, anchor + timedelta(days=45))
-
 
 class FarmRolloverTests(TestCase):
     def setUp(self):
@@ -1067,26 +1049,6 @@ class FarmRolloverTests(TestCase):
         self.assertFalse(Reminder.objects.filter(
             plant=self.plant, kind="harvest", is_done=False).exists())
 
-    def test_toggle_done_rolls_next_health(self):
-        rem = Reminder.objects.create(user=self.user, plant=self.plant, kind="health",
-                                      message="Monthly health check", due_date=date.today())
-        response = self.client.post(reverse("farm:reminder_toggle_ajax", args=[rem.id]))
-        self.assertTrue(response.json()["is_done"])
-        nxt = Reminder.objects.get(plant=self.plant, kind="health", is_done=False)
-        self.assertNotEqual(nxt.id, rem.id)
-        self.assertEqual(nxt.due_date, date.today() + timedelta(days=30))
-
-    def test_daily_check_health_rolls_over(self):
-        rem = Reminder.objects.create(user=self.user, plant=self.plant, kind="health",
-                                      message="Monthly health check", due_date=date.today())
-        self.client.post(reverse("farm:dailycheck_save_ajax", args=[self.plant.id]), {
-            "date": date.today().isoformat(), "health": "excellent",
-        })
-        rem.refresh_from_db()
-        self.assertTrue(rem.is_done)
-        nxt = Reminder.objects.get(plant=self.plant, kind="health", is_done=False)
-        self.assertEqual(nxt.due_date, date.today() + timedelta(days=30))
-
     def test_daily_check_watered_rolls_over(self):
         Reminder.objects.create(user=self.user, plant=self.plant, kind="water",
                                 message="Water", due_date=date.today())
@@ -1110,7 +1072,5 @@ class FarmRolloverTests(TestCase):
         self.assertIn("sync complete", out.getvalue())
         self.assertTrue(Reminder.objects.filter(
             plant=lonely, kind="water", is_done=False).exists())
-        self.assertTrue(Reminder.objects.filter(
-            plant=lonely, kind="health", is_done=False).exists())
         stale.refresh_from_db()
         self.assertEqual(stale.due_date, lonely.expected_harvest_date)

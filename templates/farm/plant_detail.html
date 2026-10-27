@@ -2,7 +2,7 @@
 {% block content %}
 <div class="page-header d-print-none"><div class="row align-items-center">
 <div class="col"><div class="page-pretitle">Mosquera Farm Log</div><h2 class="page-title">{{ plant.name }} {% if plant.variety %}<small class="text-muted">{{ plant.variety }}</small>{% endif %}</h2>
-<div class="text-muted">Planted {{ plant.planting_date }} · Harvest ETA {{ plant.expected_harvest_date }} ({{ plant.days_until_harvest }} days) · {{ plant.get_status_display }}{% if latest_check %} · Latest health <span class="badge {% if latest_check.health == 'poor' %}bg-danger-lt text-danger{% elif latest_check.health == 'fair' %}bg-warning-lt text-warning{% elif latest_check.health == 'excellent' %}bg-info-lt text-info{% else %}bg-success-lt text-success{% endif %}">{{ latest_check.get_health_display }}</span> <span class="small">({{ latest_check.date }})</span>{% endif %} · Health check every {{ plant.health_check_every_days }}d{% if next_health_check %} (next {{ next_health_check.due_date }}){% endif %}</div></div>
+<div class="text-muted">Planted {{ plant.planting_date }} · Harvest ETA {{ plant.expected_harvest_date }} ({{ plant.days_until_harvest }} days) · {{ plant.get_status_display }}</div></div>
 <div class="col-auto"><a href="{% url 'farm:plant_list' %}" class="btn">Back</a>
 <form method="post" action="{% url 'farm:plant_generate_reminders' plant.id %}" style="display:inline" class="gen-form">{% csrf_token %}<button class="btn btn-outline-primary">Generate reminders</button></form>
 <form method="post" action="{% url 'farm:ai_advice_ajax' plant.id %}" style="display:inline" id="aiForm">{% csrf_token %}<button class="btn btn-purple" id="aiBtn">✨ Ask AI</button></form></div>
@@ -28,7 +28,7 @@
 <div class="col-6"><select name="health" class="form-select"><option value="poor">Poor</option><option value="fair">Fair</option><option value="good" selected>Good</option><option value="excellent">Excellent</option></select></div>
 <div class="col-6"><input name="height_cm" class="form-control" placeholder="Height cm" type="number" step="0.01"></div>
 <div class="col-12"><textarea name="notes" class="form-control" rows="2" placeholder="Daily notes..."></textarea></div>
-<div class="col-12"><button class="btn btn-primary w-100">Save today's check</button><div class="text-muted small mt-1">Saving a health status also completes the monthly health check and schedules the next one.</div></div></div></form><hr>
+<div class="col-12"><button class="btn btn-primary w-100">Save today's check</button></div></div></form><hr>
 <div class="list-group list-group-flush">{% for c in checks %}<div class="list-group-item">{{ c.date }} · {{ c.get_health_display }} · {% if c.watered %}💧{% endif %}{% if c.fertilized %}🌱{% endif %} {{ c.notes }}</div>{% empty %}<div class="text-muted">No checks yet.</div>{% endfor %}</div>
 </div></div></div>
 </div>

@@ -11,8 +11,7 @@ class GardenAreaAdmin(admin.ModelAdmin):
 
 @admin.register(Plant)
 class PlantAdmin(admin.ModelAdmin):
-    list_display = ("name", "variety", "user", "area", "planting_date", "status",
-                    "health_check_every_days")
+    list_display = ("name", "variety", "user", "area", "planting_date", "status")
     list_filter = ("status",)
 
 
