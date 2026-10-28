@@ -84,6 +84,10 @@ class Plant(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="seedling")
     water_every_days = models.PositiveIntegerField(default=2, validators=[MinValueValidator(1)])
     fertilize_every_days = models.PositiveIntegerField(default=14, validators=[MinValueValidator(1)])
+    health_check_every_days = models.PositiveIntegerField(
+        default=30, validators=[MinValueValidator(1)],
+        help_text="How often to inspect plant health, in days (default: monthly).",
+    )
     # Position inside the area grid for the visual map.
     pos_x = models.PositiveIntegerField(default=0)
     pos_y = models.PositiveIntegerField(default=0)
@@ -132,12 +136,13 @@ class Plant(models.Model):
 
 
 class Reminder(models.Model):
-    """Custom automated alert for a plant (water / fertilize / harvest / custom)."""
+    """Automated alert for a plant (water / fertilize / harvest / health / custom)."""
 
     KIND_CHOICES = [
         ("water", "Water"),
         ("fertilize", "Fertilize"),
         ("harvest", "Harvest"),
+        ("health", "Health check"),
         ("custom", "Custom"),
     ]
 
@@ -184,7 +189,7 @@ class Reminder(models.Model):
 
     @classmethod
     def build_defaults_for_plant(cls, plant: Plant, user=None):
-        """Generate tailored water / fertilize / harvest reminders for a plant."""
+        """Generate tailored water / fertilize / harvest / health reminders."""
         today = date.today()
         owner = user or plant.user
         reminders = [
@@ -202,6 +207,11 @@ class Reminder(models.Model):
                 user=owner, plant=plant, kind="harvest",
                 message=f"Harvest the {plant.name.lower()} around {plant.expected_harvest_date}",
                 due_date=plant.expected_harvest_date,
+            ),
+            cls(
+                user=owner, plant=plant, kind="health",
+                message=f"Monthly health check: inspect the {plant.name.lower()}",
+                due_date=today + timedelta(days=plant.health_check_every_days),
             ),
         ]
         return reminders

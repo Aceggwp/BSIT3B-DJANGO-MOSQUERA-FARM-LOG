@@ -44,6 +44,7 @@ erDiagram
         varchar status
         int water_every_days
         int fertilize_every_days
+        int health_check_every_days
         int pos_x
         int pos_y
         text notes
@@ -130,6 +131,7 @@ Relationship rules:
 | `status` | VARCHAR(20) | NO | `seedling` | `seed`, `seedling`, `growing`, `flowering`, `ready`, `harvested`, `dead` |
 | `water_every_days` | INT UNSIGNED | NO | 2 | Watering interval (drives reminders) |
 | `fertilize_every_days` | INT UNSIGNED | NO | 14 | Fertilizing interval |
+| `health_check_every_days` | INT UNSIGNED | NO | 30 | Monthly health-check interval (drives reminders) |
 | `pos_x` | INT UNSIGNED | NO | 0 | Grid column on the map |
 | `pos_y` | INT UNSIGNED | NO | 0 | Grid row on the map |
 | `notes` | TEXT | YES | NULL | Free text |
@@ -141,14 +143,14 @@ Relationship rules:
   planting date is the sowing date or the transplant date.
 - **Index:** (`user_id`, `status`), (`area_id`).
 
-### `farm_reminder` — automated care alerts (water / fertilize / harvest / custom)
+### `farm_reminder` — automated care alerts (water / fertilize / harvest / health / custom)
 
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
 | `id` | BIGINT | NO | AUTO_INCREMENT | Primary key |
 | `user_id` | INT | NO | — | FK → `auth_user(id)`, CASCADE |
 | `plant_id` | BIGINT | NO | — | FK → `farm_plant(id)`, CASCADE |
-| `kind` | VARCHAR(20) | NO | `custom` | `water`, `fertilize`, `harvest`, `custom` |
+| `kind` | VARCHAR(20) | NO | `custom` | `water`, `fertilize`, `harvest`, `health`, `custom` |
 | `message` | VARCHAR(255) | NO | — | e.g. "Water the lettuce today" |
 | `due_date` | DATE | NO | `CURRENT_DATE` | Sort key for the dashboard |
 | `is_done` | TINYINT(1) | NO | 0 | Completion flag |
@@ -158,9 +160,11 @@ Relationship rules:
 | `created_at` | DATETIME(6) | NO | CURRENT_TIMESTAMP(6) | |
 
 - **Index:** (`due_date`), (`plant_id`, `is_done`).
-- Business rules: completing a water/fertilize reminder auto-schedules
-  the next occurrence (interval from the plant row); harvest reminder
-  due on `expected_harvest_date`.
+- Business rules: completing a water/fertilize/health reminder
+  auto-schedules the next occurrence (interval from the plant row);
+  logging a daily health status completes any due monthly health check
+  and schedules the next one; harvest reminder due on
+  `expected_harvest_date`.
 
 ### `farm_carelog` — care history with progress photos
 

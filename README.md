@@ -37,6 +37,10 @@ role-based accounts with login tracking.
 - **Daily monitoring** — one entry per plant per day with watered/fertilized
   toggles, health status (Poor, Fair, Good, Excellent), height, and notes.
   Poor health automatically creates a follow-up reminder.
+- **Monthly health checks** — every plant gets a recurring health-check
+  reminder (default 30 days). Saving a health status in Daily Monitoring
+  completes the current check and schedules the next one; the plant page shows
+  the latest health and next check date.
 - **Quick log** — one-tap watering/fertilizing for all plants (or one area),
   plus a "Pest spotted" shortcut.
 - **Weather-adaptive reminders** — Open-Meteo forecast integration pauses
@@ -87,7 +91,7 @@ apps/
   users/                 # admin-only user management
   farm/                  # plants, reminders, care logs, map, weather, AI
     crops.py             # crop maturity ranges, aliases, start-method defaults
-    management/commands/ # seed_farm.py, sync_reminders.py
+    management/commands/ # seed_farm.py, seed_health_demo.py, sync_reminders.py
 templates/               # auth, theme, farm, and users templates
 static/                  # Tabler UI and vendored front-end libraries
 docs/
@@ -127,8 +131,8 @@ erDiagram
 |---|---|---|
 | `auth_user` | Django account | username, email, password, is_staff, is_superuser |
 | `farm_gardenarea` | Growing spaces for the map | user, name, kind, rows, cols; unique (`user`, `name`) |
-| `farm_plant` | A planting and its schedule | user, area, name, variety, planting date, start method (`direct`/`transplant`), days to harvest, status, water/fertilize intervals, grid position |
-| `farm_reminder` | Care alerts | user, plant, kind (`water`, `fertilize`, `harvest`, `custom`), message, due date, completion, weather pause |
+| `farm_plant` | A planting and its schedule | user, area, name, variety, planting date, start method (`direct`/`transplant`), days to harvest, status, water/fertilize/health-check intervals, grid position |
+| `farm_reminder` | Care alerts | user, plant, kind (`water`, `fertilize`, `harvest`, `health`, `custom`), message, due date, completion, weather pause |
 | `farm_carelog` | Care history | user, plant, date, category (`growth`, `pest`, `weather`, `note`), description, photo |
 | `farm_dailycheck` | One monitoring entry per plant per day | user, plant, date, watered, fertilized, health, height, notes; unique (`plant`, `date`) |
 | `core_loginevent` | Sign-in audit trail | user, timestamp, IP address, user agent |
@@ -172,8 +176,8 @@ Public registration always creates a **staff** account. Create an admin with
 
 ## Reminder automation
 
-- Completing a **water** or **fertilize** reminder automatically schedules the
-  next occurrence using the interval on the plant.
+- Completing a **water**, **fertilize**, or **health** reminder automatically
+  schedules the next occurrence using the interval on the plant.
 - **Harvest** reminders use the computed harvest date.
 - **Custom** reminders are one-time alerts.
 - When rain above the threshold is forecast, due watering reminders can be
@@ -181,6 +185,41 @@ Public registration always creates a **staff** account. Create an admin with
 - `python manage.py sync_reminders` backfills missing reminders and re-syncs
   harvest dates. It is idempotent and safe to run from cron or Windows Task
   Scheduler.
+
+### Monthly health checks
+
+Every plant has a recurring **Health check** reminder driven by
+`health_check_every_days` (default **30 days**):
+
+- New plants get a health-check reminder automatically.
+- Completing it — or saving any health status in **Daily Monitoring** — marks
+  the current check done and creates the next one from that date.
+- The plant page shows the **latest health** (Poor / Fair / Good / Excellent)
+  and the **next check date**.
+- Health checks appear on the **Dashboard → Due now** and the **Reminders**
+  page with a 🩺 badge, alongside water, fertilize, and harvest tasks.
+- Change the cadence per plant under **Plants → Add/Edit Plant → Health check
+  every (days)**.
+- Existing plants are backfilled by `python manage.py sync_reminders`.
+
+### Sample monthly-health demo
+
+The demo command is safe to re-run: it resets only its own demo plants.
+
+```bash
+python manage.py seed_health_demo --username admin
+```
+
+It creates two examples:
+
+- **Demo Lettuce (Good Health)** — history Fair → Good → Good → Excellent,
+  one completed monthly check, and one check due today.
+- **Demo Tomato (Poor Health)** — history Good → Fair → Fair → Poor, one
+  completed monthly check, one check due today, and a follow-up alert from the
+  poor-health report.
+
+Open a plant, save a health status (or click **Done** on the reminder), and the
+next check is scheduled 30 days later.
 
 ## Harvest estimates
 
@@ -258,6 +297,16 @@ python manage.py seed_farm --username admin
 
 Creates example garden areas, plants, reminders, care logs, and daily checks
 for the given account. Use `--clear` to wipe that user's farm data first.
+
+For focused monthly-health examples:
+
+```bash
+python manage.py seed_health_demo --username admin
+```
+
+This creates **Demo Lettuce (Good Health)** and **Demo Tomato (Poor Health)**
+with a month of health history, monthly checks due today, and a follow-up alert
+on the poor example; it only resets its own demo plants.
 
 ## Environment variables
 
